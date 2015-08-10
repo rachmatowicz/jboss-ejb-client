@@ -190,6 +190,10 @@ public final class EJBClientContext extends Attachable implements Closeable {
         final EJBClientContext context = new EJBClientContext(ejbClientConfiguration);
         // run it through the initializers
         context.init(classLoader);
+
+        // debug BZ
+        logger.debug("Creating EJBClientContext: context instance = " + context.toString());
+
         return context;
     }
 
@@ -595,7 +599,7 @@ public final class EJBClientContext extends Attachable implements Closeable {
         } while (!registrationsUpdater.compareAndSet(this, oldRegistrations, newRegistrations));
     }
 
-    Collection<EJBReceiver> getEJBReceivers(final String appName, final String moduleName, final String distinctName) {
+    public Collection<EJBReceiver> getEJBReceivers(final String appName, final String moduleName, final String distinctName) {
         return this.getEJBReceivers(appName, moduleName, distinctName, true);
     }
 
@@ -628,6 +632,12 @@ public final class EJBClientContext extends Attachable implements Closeable {
             // combination. We won't attempt any reconnections now.
             eligibleEJBReceivers.addAll(this.getEJBReceivers(appName, moduleName, distinctName, false));
         }
+
+        // debug BZ
+        logger.debug("Calling EJBClientContext.getReceivers(" + appName + "," + moduleName + "," + distinctName + ") called" );
+        logger.debug("context instance = " + this.toString());
+        logReceivers(eligibleEJBReceivers);
+
         return eligibleEJBReceivers;
     }
 
@@ -1138,6 +1148,11 @@ public final class EJBClientContext extends Attachable implements Closeable {
         if (closed) {
             return;
         }
+
+        // debug BZ
+        logger.debug("Closing EJBClient context: context instance = " + this.toString());
+        logReceivers(ejbReceiverAssociations.keySet());
+
         // mark this context as closed. The real cleanup like closing of EJB receivers
         // *isn't* the responsibility of the EJB client context. We'll just let our EJBClientContextListeners
         // (if any) know about the context being closed and let them handle closing the receivers if they want to
@@ -1154,6 +1169,16 @@ public final class EJBClientContext extends Attachable implements Closeable {
         // close the executor we use for reconnect handlers
         this.ejbClientContextTasksExecutorService.shutdownNow();
 
+    }
+
+    private void logReceivers(Collection<EJBReceiver> receivers) {
+        logger.debug("EJBReceivers:");
+        if (receivers.size() > 0)
+            for (EJBReceiver receiver : receivers) {
+                logger.debug("  receiver = " + receiver.toString());
+            }
+        else
+            logger.debug("  No receivers!");
     }
 
     @Override
