@@ -193,6 +193,14 @@ public final class EJBClientContext extends Attachable implements Closeable {
 
         // debug BZ
         logger.debug("Creating EJBClientContext: context instance = " + context.toString());
+        StackTraceElement[] stacks = Thread.currentThread().getStackTrace();
+        logger.debug("Abbreviated StackTrace:");
+        int i = 0;
+        for (StackTraceElement stack : stacks) {
+            if (i < 12)
+                logger.debug("stack element: " + stack.toString());
+            i++;
+        }
 
         return context;
     }
