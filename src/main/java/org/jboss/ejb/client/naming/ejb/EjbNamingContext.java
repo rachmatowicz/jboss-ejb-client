@@ -27,6 +27,7 @@ import org.jboss.ejb.client.EJBClientContext;
 import org.jboss.ejb.client.EJBClientContextIdentifier;
 import org.jboss.ejb.client.EJBHomeLocator;
 import org.jboss.ejb.client.EJBLocator;
+import org.jboss.ejb.client.EJBReceiver;
 import org.jboss.ejb.client.IdentityEJBClientContextSelector;
 import org.jboss.ejb.client.Logs;
 import org.jboss.ejb.client.NamedEJBClientContextIdentifier;
@@ -46,6 +47,7 @@ import javax.naming.NameParser;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.Properties;
@@ -173,6 +175,11 @@ class EjbNamingContext implements Context {
         if (identifier.getEjbName() == null) {
             return createEjbContext(identifier, this.environment);
         }
+
+        log.debug("ejb: namespace lookup (" + name + ") called");
+        EJBClientContext eJBContext =  EJBClientContext.getSelector().getCurrent();
+        log.debug("context instance = " + eJBContext.toString());
+
         return createEjbProxy(identifier);
     }
 
@@ -182,6 +189,11 @@ class EjbNamingContext implements Context {
 
     protected Object createEjbProxy(final EjbJndiIdentifier identifier) throws NamingException {
         final Class<?> viewClass;
+
+        log.debug("EjbNamingContext.createEjbProxy (" + identifier + ") called");
+        EJBClientContext eJBContext =  EJBClientContext.getSelector().getCurrent();
+        log.debug("context instance = " + eJBContext.toString());
+
         try {
             viewClass = Class.forName(identifier.getViewName(), false, SecurityActions.getContextClassLoader());
         } catch (ClassNotFoundException e) {
@@ -409,7 +421,15 @@ class EjbNamingContext implements Context {
 
     @Override
     public void close() throws NamingException {
+
+        log.debug("EjbNamingContext close called");
+        EJBClientContext eJBContext =  EJBClientContext.getSelector().getCurrent();
+        log.debug("context instance = " + eJBContext.toString());
+
         if (this.ejbClientContextIdentifier != null) {
+
+            log.debug("EjbNamingContext to be closed is scoped!");
+
             // unregister the scoped EJB client context
             final ContextSelector<EJBClientContext> currentSelector = EJBClientContext.getSelector();
             if (!(currentSelector instanceof IdentityEJBClientContextSelector)) {

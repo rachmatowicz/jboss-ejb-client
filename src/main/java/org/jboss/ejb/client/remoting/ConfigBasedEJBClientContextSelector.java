@@ -82,6 +82,9 @@ public class ConfigBasedEJBClientContextSelector implements IdentityEJBClientCon
      * @param classLoader            The classloader that will be used to {@link EJBClientContext#create(org.jboss.ejb.client.EJBClientConfiguration, ClassLoader) create the EJBClientContext}
      */
     public ConfigBasedEJBClientContextSelector(final EJBClientConfiguration ejbClientConfiguration, final ClassLoader classLoader) {
+        // debug BZ
+        logger.debug("EJBClientContextSelector constructor called");
+
         this.ejbClientConfiguration = ejbClientConfiguration;
         // create a empty context
         if (classLoader == null) {
@@ -138,6 +141,9 @@ public class ConfigBasedEJBClientContextSelector implements IdentityEJBClientCon
             final EJBClientConfiguration.RemotingConnectionConfiguration connectionConfiguration = connectionConfigurations.next();
             final String host = connectionConfiguration.getHost();
             final int port = connectionConfiguration.getPort();
+
+            logger.debug("ConfigBasedEJBClientContextSelector: seeing up receiver for host = " + host  + ", port = " + port);
+
             final int MAX_RECONNECT_ATTEMPTS = 65535; // TODO: Let's keep this high for now and later allow configuration and a smaller default value
             // create a re-connect handler (which will be used on connection breaking down)
             final ReconnectHandler reconnectHandler = new EJBClientContextConnectionReconnectHandler(ejbClientContext, endpoint, host, port, connectionConfiguration, MAX_RECONNECT_ATTEMPTS);
