@@ -76,7 +76,7 @@ public final class EJBClientInvocationContext extends Attachable {
 
     // Interceptor state
     private final EJBClientInterceptor[] interceptorChain;
-    private int interceptorChainIndex;
+    private volatile int interceptorChainIndex = 0;
     private boolean resultDone;
 
     EJBClientInvocationContext(final EJBInvocationHandler<?> invocationHandler, final EJBClientContext ejbClientContext, final Object invokedProxy, final Method invokedMethod, final Object[] parameters) {
@@ -261,6 +261,9 @@ public final class EJBClientInvocationContext extends Attachable {
 
         final int idx = this.interceptorChainIndex++;
         final EJBClientInterceptor[] chain = interceptorChain;
+        if (idx > chain.length) {
+            throw Logs.MAIN.getResultCalledDuringWrongPhase();
+        }
         if (idx == 0) try {
             return chain[idx].handleInvocationResult(this);
         } finally {
