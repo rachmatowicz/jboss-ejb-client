@@ -63,16 +63,10 @@ public class DummyAssociationImpl implements Association {
         final ModuleIdentifier module = new ModuleIdentifier(ejbIdentifier.getAppName(), ejbIdentifier.getModuleName(), ejbIdentifier.getDistinctName());
         final String beanName = ejbIdentifier.getBeanName();
 
-        System.out.println("DummyAssociationImpl: received invocation request for identifier: " + ejbIdentifier);
-
-        // dump repo
-        deploymentRepository.dumpContents();
-
         // search the repository for the bean
         Object bean = deploymentRepository.findEJB(module, beanName);
 
         if (bean == null) {
-            System.out.println("DummyAssociationImpl: could not find bean in DeploymentRepository");
             invocationRequest.writeNoSuchEJB();;
             return CancelHandle.NULL;
         }
@@ -246,7 +240,6 @@ public class DummyAssociationImpl implements Association {
      */
     @Override
     public ListenerHandle registerClusterTopologyListener(@NotNull ClusterTopologyListener clusterTopologyListener) {
-        System.out.println("DummyAssociationImpl: registering ClusterToplogyListener");
         final EJBClusterRegistryListener listener = new EJBClusterRegistryListener() {
 
             @Override
@@ -285,7 +278,6 @@ public class DummyAssociationImpl implements Association {
      */
     @Override
     public ListenerHandle registerModuleAvailabilityListener(@NotNull ModuleAvailabilityListener moduleAvailabilityListener) {
-        System.out.println("DummyAssociationImpl: registering ModuleAvailabilityListener");
         final EJBDeploymentRepositoryListener listener = new EJBDeploymentRepositoryListener() {
             /**
              * Make use of the callback
@@ -295,7 +287,6 @@ public class DummyAssociationImpl implements Association {
              */
             @Override
             public void moduleAvailable(List<ModuleIdentifier> modules) {
-                System.out.println("DummyAssociationImpl: calling addedModule: modules = " + modules);
                 moduleAvailabilityListener.moduleAvailable(modules);
             }
 
@@ -307,7 +298,6 @@ public class DummyAssociationImpl implements Association {
              */
             @Override
             public void moduleUnavailable(List<ModuleIdentifier> modules) {
-                System.out.println("DummyAssociationImpl: calling removeModule: modules = " + modules);
                 moduleAvailabilityListener.moduleUnavailable(modules);
             }
         };

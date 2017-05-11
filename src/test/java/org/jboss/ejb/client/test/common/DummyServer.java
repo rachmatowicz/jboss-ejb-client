@@ -27,6 +27,7 @@ import org.xnio.IoUtils;
 import org.xnio.OptionMap;
 import org.xnio.Options;
 import org.xnio.Sequence;
+import org.xnio.Xnio;
 import org.xnio.channels.AcceptingChannel;
 
 import java.net.InetAddress;
@@ -71,7 +72,9 @@ public class DummyServer {
 
         // create a Remoting endpoint
         final OptionMap options = OptionMap.EMPTY;
-        EndpointBuilder endpointBuilder = Endpoint.builder().setEndpointName(this.endpointName).setXnioWorkerOptions(options);
+        EndpointBuilder endpointBuilder = Endpoint.builder();
+        endpointBuilder.setEndpointName(this.endpointName);
+        endpointBuilder.buildXnioWorker(Xnio.getInstance()).populateFromOptions(options).build();
         endpoint = endpointBuilder.build();
 
         // add a connection provider factory for the URI scheme "remote"
@@ -81,6 +84,7 @@ public class DummyServer {
         // set up a security realm called default with a user called test
         final SimpleMapBackedSecurityRealm realm = new SimpleMapBackedSecurityRealm();
         realm.setPasswordMap("test", ClearPassword.createRaw(ClearPassword.ALGORITHM_CLEAR, "test".toCharArray()));
+
         // set up a security domain which has realm "default"
         final SecurityDomain.Builder domainBuilder = SecurityDomain.builder();
         domainBuilder.addRealm("default", realm).build();                                  // add the security realm called "default" to the security domain
@@ -88,7 +92,7 @@ public class DummyServer {
         domainBuilder.setPermissionMapper((permissionMappable, roles) -> PermissionVerifier.ALL);
         SecurityDomain testDomain = domainBuilder.build();
 
-        // set up a SaslAuthenticationFactory
+        // set up a SaslAuthenticationFactory (i.e. a SaslServerFactory)
         SaslAuthenticationFactory saslAuthenticationFactory = SaslAuthenticationFactory.builder()
                 .setSecurityDomain(testDomain)
                 .setMechanismConfigurationSelector(mechanismInformation -> {
@@ -120,7 +124,6 @@ public class DummyServer {
         // setup remote EJB service
         RemoteEJBService remoteEJBService = RemoteEJBService.create(dummyAssociation,transactionService);
         remoteEJBService.serverUp();
-        System.out.println("Started RemoteEJBService...");
 
         // Register an EJB channel open listener
         OpenListener channelOpenListener = remoteEJBService.getOpenListener();
@@ -151,15 +154,15 @@ public class DummyServer {
         clusterRegistry.addCluster(clusterInfo);
     }
 
-    void removeCluster(String clusterName) {
+    public void removeCluster(String clusterName) {
         clusterRegistry.removeCluster(clusterName);
     }
 
-    void addClusterNodes(ClusterInfo newClusterInfo) {
+    public void addClusterNodes(ClusterInfo newClusterInfo) {
         clusterRegistry.addClusterNodes(newClusterInfo);
     }
 
-    void removeClusterNodes(ClusterRemovalInfo clusterRemovalInfo) {
+    public void removeClusterNodes(ClusterRemovalInfo clusterRemovalInfo) {
         clusterRegistry.removeClusterNodes(clusterRemovalInfo);
     }
 
@@ -207,7 +210,6 @@ public class DummyServer {
         }
 
         Object findEJB(ModuleIdentifier module, String beanName) {
-            System.out.println("DummyServer: looking for module: " + module.getAppName() + "/" + module.getModuleName() + "/" + module.getDistinctName() + " and bean " + beanName);
             final Map<String, Object> ejbs = this.registeredEJBs.get(module);
             final Object beanInstance = ejbs.get(beanName);
             if (beanInstance == null) {
@@ -217,20 +219,7 @@ public class DummyServer {
             return beanInstance ;
         }
 
-        void dumpContents() {
-            System.out.println("DummyServer: deployed modules:");
-            for (ModuleIdentifier module : registeredEJBs.keySet()) {
-                final Map<String, Object> ejbs = this.registeredEJBs.get(module);
-                for (String beanName : ejbs.keySet()) {
-                    final Object beanInstance = ejbs.get(beanName);
-                    final String moduleName = module.getAppName() + "/" + module.getModuleName() + "/" + module.getDistinctName() ;
-                    System.out.println("module: " + moduleName + ", beanName: " + beanName + ", beanType: " + beanInstance.getClass().getName());
-                }
-            }
-        }
-
         void addListener(EJBDeploymentRepositoryListener listener) {
-            System.out.println("DummyServer: deploymentRepository - adding listener");
             listeners.add(listener);
 
             // EJBClientChannel depends on an initial module availability report to be sent out
@@ -354,7 +343,6 @@ public class DummyServer {
         }
 
         void addListener(EJBClusterRegistryListener listener) {
-            System.out.println("DummyServer: clusterRegistry - adding listener");
             listeners.add(listener);
 
             // EJBClientChannel depends on an initial module availability report to be sent out
