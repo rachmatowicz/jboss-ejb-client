@@ -144,7 +144,7 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider {
         }
         countDown(connectionCount, result);
         if (log.isDebugEnabled()) {
-            log.debug("called discover(" + (filterSpec == null ? "null" : filterSpec.toString()) + ")");
+            log.debug("called discover(" + (filterSpec == null ? "null" : filterSpec.toString()) + ") with clustered provider");
         }
         return () -> {
             synchronized (cancellers) {
