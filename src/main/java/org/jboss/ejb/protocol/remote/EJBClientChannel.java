@@ -367,6 +367,7 @@ class EJBClientChannel {
                                 Logs.REMOTING.trace("Ignoring cluster node because the URI failed to be built", e);
                                 continue;
                             }
+                            System.out.println("EJBClientChannel: registering ServiceURL: " + abstractBuilder.create());
                             final ServiceRegistration abstractRegistration = persistentClusterRegistry.registerService(abstractBuilder.create());
 
                             // dummy key for the single abstractServiceURL
@@ -409,6 +410,7 @@ class EJBClientChannel {
                                     Logs.REMOTING.trace("Ignoring cluster node because the URI failed to be built", e);
                                     continue;
                                 }
+                                System.out.println("EJBClientChannel: registering ServiceURL: " + concreteBuilder.create());
                                 final ServiceRegistration concreteRegistration = persistentClusterRegistry.registerService(concreteBuilder.create());
                                 final ClusterDiscKey concreteKey = new ClusterDiscKey(clusterName, nodeName, sourceIpBytes, netmaskBits);
                                 final ServiceRegistration oldConcrete = clusterRegistrationsMap.computeIfAbsent(clusterName, x -> new ConcurrentHashMap<>()).computeIfAbsent(nodeName, x -> new ConcurrentHashMap<>()).put(concreteKey, concreteRegistration);
@@ -425,6 +427,7 @@ class EJBClientChannel {
                     int clusterCount = StreamUtils.readPackedSignedInt32(message);
                     for (int i = 0; i < clusterCount; i ++) {
                         String clusterName = message.readUTF();
+                        System.out.println("EJBClientChannel: removing ServiceURLs for cluster : " + clusterName);
                         final ConcurrentMap<String, ConcurrentMap<ClusterDiscKey, ServiceRegistration>> subMap = clusterRegistrationsMap.remove(clusterName);
                         if (subMap != null) {
                             for (ConcurrentMap<ClusterDiscKey, ServiceRegistration> subSubMap : subMap.values()) {
@@ -445,6 +448,7 @@ class EJBClientChannel {
                         for (int j = 0; j < memberCount; j ++) {
                             String nodeName = message.readUTF();
                             if (subMap != null) {
+                                System.out.println("EJBClientChannel: removing ServiceURLs for cluster.node : " + clusterName + "." + nodeName);
                                 final ConcurrentMap<ClusterDiscKey, ServiceRegistration> subSubMap = subMap.remove(nodeName);
                                 if (subSubMap != null) for (ServiceRegistration registration : subSubMap.values()) {
                                     registration.close();
