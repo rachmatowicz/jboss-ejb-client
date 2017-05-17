@@ -117,7 +117,6 @@ public class ClusteredInvocationTestCase {
     /**
      * Test a basic invocation on clustered SLSB
      */
-    @Ignore("Remove when EJBCLIENT-216 is merged")
     @Test
     public void testClusteredSLSBInvocation() {
         logger.info("Testing invocation on SLSB proxy with ClusterAffinity");
@@ -140,7 +139,6 @@ public class ClusteredInvocationTestCase {
     /**
      * Test a basic invocation on clustered SFSB
      */
-    @Ignore("Remove when EJBCLIENT-216 is merged")
     @Test
     public void testClusteredSFSBInvocation() {
         logger.info("Testing invocation on SFSB proxy with ClusterAffinity");
