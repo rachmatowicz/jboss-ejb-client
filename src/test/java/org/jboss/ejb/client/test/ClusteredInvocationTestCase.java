@@ -103,14 +103,22 @@ public class ClusteredInvocationTestCase {
 
     @Test
     public void testConfiguredConnections() {
+        logger.info("Testing configured connections");
         EJBClientContext context = EJBClientContext.getCurrent();
         List<EJBClientConnection> connections = context.getConfiguredConnections();
+
+        // check for the correct number of configured connections
+        Assert.assertEquals("Incorrect number of configured connectiuons found", 2, connections.size());
+        logger.info("Listing configured connections:");
         for (EJBClientConnection connection : connections) {
-            System.out.println("testConfiguredConnections: found connection: destination = " + connection.getDestination() + ", forDiscovery = " + connection.isForDiscovery());
+            logger.info("found connection: destination = " + connection.getDestination() + ", forDiscovery = " + connection.isForDiscovery());
         }
+        
+        // this is broken
         Collection<EJBClientCluster> clusters = context.getInitialConfiguredClusters();
+        logger.info("Listing configured clusters:");
         for (EJBClientCluster cluster: clusters) {
-            System.out.println("testConfiguredConnections: found cluster: name = " + cluster.getName());
+            logger.info("found cluster: name = " + cluster.getName());
         }
     }
 
