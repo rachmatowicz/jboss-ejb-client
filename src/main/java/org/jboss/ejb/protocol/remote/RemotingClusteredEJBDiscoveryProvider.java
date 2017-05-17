@@ -20,6 +20,7 @@ package org.jboss.ejb.protocol.remote;
 
 import org.jboss.ejb.client.EJBClientConnection;
 import org.jboss.ejb.client.EJBClientContext;
+import org.jboss.logging.Logger;
 import org.jboss.remoting3.Connection;
 import org.jboss.remoting3.Endpoint;
 import org.wildfly.discovery.Discovery;
@@ -50,12 +51,16 @@ import static java.security.AccessController.doPrivileged;
  */
 final class RemotingClusteredEJBDiscoveryProvider implements DiscoveryProvider {
     static final RemotingClusteredEJBDiscoveryProvider INSTANCE = new RemotingClusteredEJBDiscoveryProvider();
+    private static Logger log = Logger.getLogger("org.jboss.ejb.client.discovery");
 
     private RemotingClusteredEJBDiscoveryProvider() {
         Endpoint.getCurrent(); //this will blow up if remoting is not present, preventing this from being registered
     }
 
     public DiscoveryRequest discover(final ServiceType serviceType, final FilterSpec filterSpec, final DiscoveryResult result) {
+        if (log.isDebugEnabled()) {
+            log.debug("calling discover(" + (filterSpec == null ? "null" : filterSpec.toString()) + ")");
+        }
         if (!serviceType.implies(ServiceType.of("ejb", "jboss"))) {
             // only respond to requests for JBoss EJB services
             result.complete();
@@ -75,6 +80,9 @@ final class RemotingClusteredEJBDiscoveryProvider implements DiscoveryProvider {
             // add matches if there are results
             if (serviceURI != null) {
                 while (serviceURI != null) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("discovered ServiceURL: " + serviceURI.toString());
+                    }
                     result.addMatch(serviceURI);
                     serviceURI = servicesQueue.take();
                 }
@@ -87,6 +95,9 @@ final class RemotingClusteredEJBDiscoveryProvider implements DiscoveryProvider {
         }
 
         result.complete();
+        if (log.isDebugEnabled()) {
+            log.debug("called discover(" + (filterSpec == null ? "null" : filterSpec.toString()) + ")");
+        }
         return DiscoveryRequest.NULL;
     }
 }

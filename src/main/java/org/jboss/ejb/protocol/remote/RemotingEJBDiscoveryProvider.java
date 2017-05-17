@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jboss.ejb.client.EJBClientConnection;
 import org.jboss.ejb.client.EJBClientContext;
+import org.jboss.logging.Logger;
 import org.jboss.remoting3.Connection;
 import org.jboss.remoting3.Endpoint;
 import org.wildfly.discovery.Discovery;
@@ -49,6 +50,9 @@ import org.xnio.OptionMap;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 final class RemotingEJBDiscoveryProvider implements DiscoveryProvider {
+
+    private static Logger log = Logger.getLogger("org.jboss.ejb.client.discovery");
+
     static final RemotingEJBDiscoveryProvider INSTANCE = new RemotingEJBDiscoveryProvider();
 
     private RemotingEJBDiscoveryProvider() {
@@ -56,6 +60,9 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider {
     }
 
     public DiscoveryRequest discover(final ServiceType serviceType, final FilterSpec filterSpec, final DiscoveryResult result) {
+        if (log.isDebugEnabled()) {
+            log.debug("calling discover(" + (filterSpec == null ? "null" : filterSpec.toString()) + ")");
+        }
         if (! serviceType.implies(ServiceType.of("ejb", "jboss"))) {
             // only respond to requests for JBoss EJB services
             result.complete();
@@ -135,6 +142,9 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider {
             }, result);
         }
         countDown(connectionCount, result);
+        if (log.isDebugEnabled()) {
+            log.debug("called discover(" + (filterSpec == null ? "null" : filterSpec.toString()) + ")");
+        }
         return () -> {
             synchronized (cancellers) {
                 for (Runnable canceller : cancellers) {
