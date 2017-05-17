@@ -61,7 +61,8 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider {
 
     public DiscoveryRequest discover(final ServiceType serviceType, final FilterSpec filterSpec, final DiscoveryResult result) {
         if (log.isDebugEnabled()) {
-            log.debug("calling discover(" + (filterSpec == null ? "null" : filterSpec.toString()) + ")");
+            log.debug("calling discover(" + (filterSpec == null ? "null" : filterSpec.toString()) + ") with non-clustered provider");
+            log.debug("discovered ServiceURLs:");
         }
         if (! serviceType.implies(ServiceType.of("ejb", "jboss"))) {
             // only respond to requests for JBoss EJB services
