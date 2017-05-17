@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 import org.jboss.ejb._private.Logs;
 import org.jboss.ejb.client.ClusterNodeSelector;
 import org.jboss.ejb.client.EJBClientContext;
+import org.jboss.logging.Logger;
 import org.kohsuke.MetaInfServices;
 import org.wildfly.common.function.ExceptionSupplier;
 import org.wildfly.discovery.AttributeValue;
@@ -48,6 +49,8 @@ import org.wildfly.discovery.spi.RegistryProvider;
  */
 @MetaInfServices
 public final class DiscoveryLegacyConfiguration implements ExternalDiscoveryConfigurator {
+    private static Logger log = Logger.getLogger("org.jboss.ejb.client.discovery");
+
     public void configure(final Consumer<DiscoveryProvider> discoveryProviderConsumer, final Consumer<RegistryProvider> registryProviderConsumer) {
         final JBossEJBProperties ejbProperties = JBossEJBProperties.getCurrent();
         if (ejbProperties == null) {
@@ -77,6 +80,9 @@ public final class DiscoveryLegacyConfiguration implements ExternalDiscoveryConf
                     continue;
                 }
                 // add the new ServiceURL to our provider
+                if (log.isDebugEnabled()) {
+                    log.debug("adding ServiceURLs: " + abstractBuilder.create() + " from static provider");
+                }
                 list.add(abstractBuilder.create());
             }
         }
