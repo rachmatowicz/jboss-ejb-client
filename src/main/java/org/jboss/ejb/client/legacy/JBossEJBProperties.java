@@ -121,6 +121,7 @@ public final class JBossEJBProperties implements Contextual<JBossEJBProperties> 
         final AtomicReference<JBossEJBProperties> onceRef = new AtomicReference<>();
         CONTEXT_MANAGER.setGlobalDefaultSupplier(() -> {
             JBossEJBProperties value = onceRef.get();
+            System.out.println("JBossEJBProperties: getting value: = " + (value == null ? "null" : "non-null with endpoint name " + value.getEndpointName()));
             if (value == null) {
                 synchronized (onceRef) {
                     value = onceRef.get();

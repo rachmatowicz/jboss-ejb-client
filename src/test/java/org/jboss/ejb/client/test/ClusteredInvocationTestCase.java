@@ -109,7 +109,7 @@ public class ClusteredInvocationTestCase {
         List<EJBClientConnection> connections = context.getConfiguredConnections();
 
         // check for the correct number of configured connections
-        Assert.assertEquals("Incorrect number of configured connectiuons found", 2, connections.size());
+        Assert.assertEquals("Incorrect number of configured connections found", 2, connections.size());
         logger.info("Listing configured connections:");
         for (EJBClientConnection connection : connections) {
             logger.info("found connection: destination = " + connection.getDestination() + ", forDiscovery = " + connection.isForDiscovery());
