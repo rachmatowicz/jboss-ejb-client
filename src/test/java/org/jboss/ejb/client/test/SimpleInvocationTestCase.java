@@ -29,7 +29,7 @@ public class SimpleInvocationTestCase {
     private static final Logger logger = Logger.getLogger(SimpleInvocationTestCase.class);
 
     // legacy configuration file
-    private static final String LEGACY_CONFOGURATION_FILENAME = "jboss-ejb-client.properties";
+    private static final String LEGACY_CONFIGURATION_FILENAME = "jboss-ejb-client.properties";
 
     private DummyServer server;
     private boolean serverStarted = false;
@@ -67,29 +67,35 @@ public class SimpleInvocationTestCase {
     /**
      * Test a basic invocation
      */
-//    @Ignore
     @Test
-    public void testInvocationWithURIAffinity() {
-        logger.info("Testing invocation on proxy with URIAffinity");
+    public void testInvocationWithURIAffinity() throws Exception {
 
-        // create a proxy for invocation
-        final StatelessEJBLocator<Echo> statelessEJBLocator = new StatelessEJBLocator<Echo>(Echo.class, APP_NAME, MODULE_NAME, Echo.class.getSimpleName(), DISTINCT_NAME);
-        final Echo proxy = EJBClient.createProxy(statelessEJBLocator);
-        URI uri = null;
-        try {
-            uri = new URI("remote", null,"localhost", 6999, null, null,null);
-        } catch(URISyntaxException use) {
-            //
-        }
-        EJBClient.setStrongAffinity(proxy, URIAffinity.forUri(uri));
-        Assert.assertNotNull("Received a null proxy", proxy);
-        logger.info("Created proxy for Echo: " + proxy.toString());
+        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(ClusteredInvocationTestCase.class.getClassLoader(), LEGACY_CONFIGURATION_FILENAME);
+        ejbProperties.runCallable(() -> {
 
-        logger.info("Invoking on proxy...");
-        // invoke on the proxy (use a URIAffinity for now)
-        final String message = "hello!";
-        final String echo = proxy.echo(message);
-        Assert.assertEquals("Got an unexpected echo", echo, message);
+            logger.info("Testing invocation on proxy with URIAffinity");
+
+            // create a proxy for invocation
+            final StatelessEJBLocator<Echo> statelessEJBLocator = new StatelessEJBLocator<Echo>(Echo.class, APP_NAME, MODULE_NAME, Echo.class.getSimpleName(), DISTINCT_NAME);
+            final Echo proxy = EJBClient.createProxy(statelessEJBLocator);
+            URI uri = null;
+            try {
+                uri = new URI("remote", null, "localhost", 6999, null, null, null);
+            } catch (URISyntaxException use) {
+                //
+            }
+            EJBClient.setStrongAffinity(proxy, URIAffinity.forUri(uri));
+            Assert.assertNotNull("Received a null proxy", proxy);
+            logger.info("Created proxy for Echo: " + proxy.toString());
+
+            logger.info("Invoking on proxy...");
+            // invoke on the proxy (use a URIAffinity for now)
+            final String message = "hello!";
+            final String echo = proxy.echo(message);
+            Assert.assertEquals("Got an unexpected echo", echo, message);
+
+            return null;
+        });
     }
 
     /**
