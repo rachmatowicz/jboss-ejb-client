@@ -37,7 +37,7 @@ public class ClusteredInvocationTestCase {
     private static final Logger logger = Logger.getLogger(ClusteredInvocationTestCase.class);
 
     // legacy configuration file
-    private static final String LEGACY_CONFOGURATION_FILENAME = "clustered-jboss-ejb-client.properties";
+    private static final String LEGACY_CONFIGURATION_FILENAME = "clustered-jboss-ejb-client.properties";
 
     // servers
     private static final String SERVER1_NAME = "node1";
@@ -108,7 +108,7 @@ public class ClusteredInvocationTestCase {
     @Test
     public void testConfiguredConnections() throws Exception {
 
-        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(this.getClass().getClassLoader(), LEGACY_CONFOGURATION_FILENAME);
+        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(ClusteredInvocationTestCase.class.getClassLoader(), LEGACY_CONFIGURATION_FILENAME);
         ejbProperties.runCallable(() -> {
 
             logger.info("Testing configured connections");
@@ -139,7 +139,7 @@ public class ClusteredInvocationTestCase {
     @Test
     public void testClusteredSLSBInvocation() throws Exception {
 
-        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(this.getClass().getClassLoader(), LEGACY_CONFOGURATION_FILENAME);
+        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(ClusteredInvocationTestCase.class.getClassLoader(), LEGACY_CONFIGURATION_FILENAME);
         ejbProperties.runCallable(() -> {
 
             logger.info("Testing invocation on SLSB proxy with ClusterAffinity");
@@ -169,7 +169,7 @@ public class ClusteredInvocationTestCase {
     @Test
     public void testClusteredSFSBInvocation() throws Exception {
 
-        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(this.getClass().getClassLoader(), LEGACY_CONFOGURATION_FILENAME);
+        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(ClusteredInvocationTestCase.class.getClassLoader(), LEGACY_CONFIGURATION_FILENAME);
         ejbProperties.runCallable(() -> {
 
             logger.info("Testing invocation on SFSB proxy with ClusterAffinity");
