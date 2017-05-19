@@ -114,6 +114,7 @@ public final class JBossEJBProperties implements Contextual<JBossEJBProperties> 
     private static final String CONFIGURED_PATH_NAME;
 
     static {
+        System.out.println("JBossEJBProperties: calling static initializer");
         expandPasswords = doPrivileged((PrivilegedAction<Boolean>) () ->
             Boolean.valueOf(System.getProperty("jboss-ejb-client.expandPasswords", "false"))).booleanValue();
         final String filePathPropertyName = "jboss.ejb.client.properties.file.path";
@@ -121,7 +122,7 @@ public final class JBossEJBProperties implements Contextual<JBossEJBProperties> 
         final AtomicReference<JBossEJBProperties> onceRef = new AtomicReference<>();
         CONTEXT_MANAGER.setGlobalDefaultSupplier(() -> {
             JBossEJBProperties value = onceRef.get();
-            System.out.println("JBossEJBProperties: getting value: = " + (value == null ? "null" : "non-null with endpoint name " + value.getEndpointName()));
+            System.out.println("JBossEJBProperties: calling global default supplier: getting value: = " + (value == null ? "null" : "non-null with endpoint name " + value.getEndpointName()));
             if (value == null) {
                 synchronized (onceRef) {
                     value = onceRef.get();
@@ -132,12 +133,14 @@ public final class JBossEJBProperties implements Contextual<JBossEJBProperties> 
                                 if (! propertiesFile.isAbsolute()) {
                                     propertiesFile = new File(System.getProperty("user.dir"), propertiesFile.toString());
                                 }
-                                System.out.println("JBossEJBProperties: getting properties from filepath: " + propertiesFile.getPath());
+                                System.out.println("JBossEJBProperties: initializing global default supplier from filepath: " + propertiesFile.getPath());
                                 value = JBossEJBProperties.fromFile(propertiesFile);
                             } catch (IOException e) {
                                 Logs.MAIN.failedToFindEjbClientConfigFileSpecifiedBySysProp(filePathPropertyName, e);
+                                System.out.println("JBossEJBProperties: initializing global default supplier from classpath ");
                                 value = JBossEJBProperties.fromClassPath();
                             } else {
+                                System.out.println("JBossEJBProperties: initializing global default supplier from classpath ");
                                 value = JBossEJBProperties.fromClassPath();
                             }
                         } catch (IOException e) {
