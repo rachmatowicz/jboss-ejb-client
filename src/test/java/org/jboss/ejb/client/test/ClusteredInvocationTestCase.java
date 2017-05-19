@@ -22,6 +22,7 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.List;
@@ -70,13 +71,6 @@ public class ClusteredInvocationTestCase {
      */
     @BeforeClass
     public static void beforeClass() throws Exception {
-        // set up the client context based on a specific properties file
-        oldProperties = JBossEJBProperties.getContextManager().getGlobalDefault();
-        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(ClusteredInvocationTestCase.class.getClassLoader(), LEGACY_CONFOGURATION_FILENAME);
-        JBossEJBProperties.getContextManager().setGlobalDefault(ejbProperties);
-
-        oldContext = EJBClientContext.getContextManager().getGlobalDefault();
-        EJBClientContext.getContextManager().setGlobalDefault(EJBClientContext.getContextManager().getPrivilegedSupplier().get());
     }
 
     /**
@@ -112,76 +106,98 @@ public class ClusteredInvocationTestCase {
     }
 
     @Test
-    public void testConfiguredConnections() {
-        logger.info("Testing configured connections");
-        EJBClientContext context = EJBClientContext.getCurrent();
-        List<EJBClientConnection> connections = context.getConfiguredConnections();
+    public void testConfiguredConnections() throws Exception {
 
-        // check for the correct number of configured connections
-        Assert.assertEquals("Incorrect number of configured connections found", 2, connections.size());
-        logger.info("Listing configured connections:");
-        for (EJBClientConnection connection : connections) {
-            logger.info("found connection: destination = " + connection.getDestination() + ", forDiscovery = " + connection.isForDiscovery());
-        }
-        
-        // this is broken
-        Collection<EJBClientCluster> clusters = context.getInitialConfiguredClusters();
-        logger.info("Listing configured clusters:");
-        for (EJBClientCluster cluster: clusters) {
-            logger.info("found cluster: name = " + cluster.getName());
-        }
+        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(this.getClass().getClassLoader(), LEGACY_CONFOGURATION_FILENAME);
+        ejbProperties.runCallable(() -> {
+
+            logger.info("Testing configured connections");
+            EJBClientContext context = EJBClientContext.getCurrent();
+            List<EJBClientConnection> connections = context.getConfiguredConnections();
+
+            // check for the correct number of configured connections
+            Assert.assertEquals("Incorrect number of configured connections found", 2, connections.size());
+            logger.info("Listing configured connections:");
+            for (EJBClientConnection connection : connections) {
+                logger.info("found connection: destination = " + connection.getDestination() + ", forDiscovery = " + connection.isForDiscovery());
+            }
+
+            // this is broken
+            Collection<EJBClientCluster> clusters = context.getInitialConfiguredClusters();
+            logger.info("Listing configured clusters:");
+            for (EJBClientCluster cluster : clusters) {
+                logger.info("found cluster: name = " + cluster.getName());
+            }
+
+            return null;
+        });
     }
 
     /**
      * Test a basic invocation on clustered SLSB
      */
     @Test
-    public void testClusteredSLSBInvocation() {
-        logger.info("Testing invocation on SLSB proxy with ClusterAffinity");
+    public void testClusteredSLSBInvocation() throws Exception {
 
-        // create a proxy for invocation
-        final StatelessEJBLocator<Echo> statelessEJBLocator = new StatelessEJBLocator<Echo>(Echo.class, APP_NAME, MODULE_NAME, Echo.class.getSimpleName(), DISTINCT_NAME);
-        final Echo proxy = EJBClient.createProxy(statelessEJBLocator);
+        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(this.getClass().getClassLoader(), LEGACY_CONFOGURATION_FILENAME);
+        ejbProperties.runCallable(() -> {
 
-        EJBClient.setStrongAffinity(proxy, new ClusterAffinity("ejb"));
-        Assert.assertNotNull("Received a null proxy", proxy);
-        logger.info("Created proxy for Echo: " + proxy.toString());
+            logger.info("Testing invocation on SLSB proxy with ClusterAffinity");
 
-        logger.info("Invoking on proxy...");
-        // invoke on the proxy (use a ClusterAffinity for now)
-        final String message = "hello!";
-        final String echo = proxy.echo(message);
-        Assert.assertEquals("Got an unexpected echo", echo, message);
+            // create a proxy for invocation
+            final StatelessEJBLocator<Echo> statelessEJBLocator = new StatelessEJBLocator<Echo>(Echo.class, APP_NAME, MODULE_NAME, Echo.class.getSimpleName(), DISTINCT_NAME);
+            final Echo proxy = EJBClient.createProxy(statelessEJBLocator);
+
+            EJBClient.setStrongAffinity(proxy, new ClusterAffinity("ejb"));
+            Assert.assertNotNull("Received a null proxy", proxy);
+            logger.info("Created proxy for Echo: " + proxy.toString());
+
+            logger.info("Invoking on proxy...");
+            // invoke on the proxy (use a ClusterAffinity for now)
+            final String message = "hello!";
+            final String echo = proxy.echo(message);
+            Assert.assertEquals("Got an unexpected echo", echo, message);
+
+            return null;
+        });
     }
+
 
     /**
      * Test a basic invocation on clustered SFSB
      */
     @Test
-    public void testClusteredSFSBInvocation() {
-        logger.info("Testing invocation on SFSB proxy with ClusterAffinity");
+    public void testClusteredSFSBInvocation() throws Exception {
 
-        // create a proxy for invocation
-        final StatelessEJBLocator<Echo> statelessEJBLocator = new StatelessEJBLocator<Echo>(Echo.class, APP_NAME, MODULE_NAME, Echo.class.getSimpleName(), DISTINCT_NAME);
-        StatefulEJBLocator<Echo> statefulEJBLocator = null;
-        try {
-            statefulEJBLocator = EJBClient.createSession(statelessEJBLocator);
-        } catch(Exception e) {
-            logger.warn("Got exception: e = " + e.getMessage());
-            Assert.fail("Can't create stateful session");
-        }
+        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(this.getClass().getClassLoader(), LEGACY_CONFOGURATION_FILENAME);
+        ejbProperties.runCallable(() -> {
 
-        final Echo proxy = EJBClient.createProxy(statefulEJBLocator);
+            logger.info("Testing invocation on SFSB proxy with ClusterAffinity");
 
-        EJBClient.setStrongAffinity(proxy, new ClusterAffinity("ejb"));
-        Assert.assertNotNull("Received a null proxy", proxy);
-        logger.info("Created proxy for Echo: " + proxy.toString());
+            // create a proxy for invocation
+            final StatelessEJBLocator<Echo> statelessEJBLocator = new StatelessEJBLocator<Echo>(Echo.class, APP_NAME, MODULE_NAME, Echo.class.getSimpleName(), DISTINCT_NAME);
+            StatefulEJBLocator<Echo> statefulEJBLocator = null;
+            try {
+                statefulEJBLocator = EJBClient.createSession(statelessEJBLocator);
+            } catch (Exception e) {
+                logger.warn("Got exception: e = " + e.getMessage());
+                Assert.fail("Can't create stateful session");
+            }
 
-        logger.info("Invoking on proxy...");
-        // invoke on the proxy (use a ClusterAffinity for now)
-        final String message = "hello!";
-        final String echo = proxy.echo(message);
-        Assert.assertEquals("Got an unexpected echo", echo, message);
+            final Echo proxy = EJBClient.createProxy(statefulEJBLocator);
+
+            EJBClient.setStrongAffinity(proxy, new ClusterAffinity("ejb"));
+            Assert.assertNotNull("Received a null proxy", proxy);
+            logger.info("Created proxy for Echo: " + proxy.toString());
+
+            logger.info("Invoking on proxy...");
+            // invoke on the proxy (use a ClusterAffinity for now)
+            final String message = "hello!";
+            final String echo = proxy.echo(message);
+            Assert.assertEquals("Got an unexpected echo", echo, message);
+
+            return null;
+        });
     }
 
     /**
@@ -223,9 +239,6 @@ public class ClusteredInvocationTestCase {
      */
     @AfterClass
     public static void afterClass() {
-        // need to reset the context after this test class completes
-        JBossEJBProperties.getContextManager().setGlobalDefault(oldProperties);
-        EJBClientContext.getContextManager().setGlobalDefault(oldContext);
     }
 
 }
