@@ -73,6 +73,7 @@ public class ClusteredInvocationTestCase {
 
         // pick up the desired legacy config file
         URL url = getClass().getClassLoader().getResource("clustered-jboss-ejb-client.properties");
+        logger.info("Using properties file: " + url.toString());
         System.setProperty("jboss.ejb.client.properties.file.path",url.getPath());
 
         // start a server

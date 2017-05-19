@@ -131,6 +131,7 @@ public final class JBossEJBProperties implements Contextual<JBossEJBProperties> 
                                 if (! propertiesFile.isAbsolute()) {
                                     propertiesFile = new File(System.getProperty("user.dir"), propertiesFile.toString());
                                 }
+                                System.out.println("JBossEJBProperties: getting properties from filepath: " + propertiesFile.getPath());
                                 value = JBossEJBProperties.fromFile(propertiesFile);
                             } catch (IOException e) {
                                 Logs.MAIN.failedToFindEjbClientConfigFileSpecifiedBySysProp(filePathPropertyName, e);
