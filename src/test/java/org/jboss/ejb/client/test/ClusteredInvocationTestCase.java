@@ -7,6 +7,7 @@ import org.jboss.ejb.client.EJBClientConnection;
 import org.jboss.ejb.client.EJBClientContext;
 import org.jboss.ejb.client.StatefulEJBLocator;
 import org.jboss.ejb.client.StatelessEJBLocator;
+import org.jboss.ejb.client.legacy.JBossEJBProperties;
 import org.jboss.ejb.client.test.common.DummyServer;
 import org.jboss.ejb.client.test.common.Echo;
 import org.jboss.ejb.client.test.common.EchoBean;
@@ -34,6 +35,9 @@ public class ClusteredInvocationTestCase {
 
     private static final Logger logger = Logger.getLogger(ClusteredInvocationTestCase.class);
 
+    // legacy configuration file
+    private static final String LEGACY_CONFOGURATION_FILENAME = "clustered-jboss-ejb-client.properties";
+
     // servers
     private static final String SERVER1_NAME = "node1";
     private static final String SERVER2_NAME = "node2";
@@ -57,12 +61,22 @@ public class ClusteredInvocationTestCase {
     private static final NodeInfo NODE2 = DummyServer.getNodeInfo(NODE2_NAME, "localhost",7099,"127.0.0.1",24);
     private static final ClusterInfo CLUSTER = DummyServer.getClusterInfo(CLUSTER_NAME, NODE1, NODE2);
 
+    private static JBossEJBProperties oldProperties = null;
+    private static EJBClientContext oldContext = null;
+
     /**
      * Do any general setup here
      * @throws Exception
      */
     @BeforeClass
     public static void beforeClass() throws Exception {
+        // set up the client context based on a specific properties file
+        oldProperties = JBossEJBProperties.getContextManager().getGlobalDefault();
+        JBossEJBProperties ejbProperties = JBossEJBProperties.fromClassPath(ClusteredInvocationTestCase.class.getClassLoader(), LEGACY_CONFOGURATION_FILENAME);
+        JBossEJBProperties.getContextManager().setGlobalDefault(ejbProperties);
+
+        oldContext = EJBClientContext.getContextManager().getGlobalDefault();
+        EJBClientContext.getContextManager().setGlobalDefault(EJBClientContext.getContextManager().getPrivilegedSupplier().get());
     }
 
     /**
@@ -70,11 +84,6 @@ public class ClusteredInvocationTestCase {
      */
     @Before
     public void beforeTest() throws Exception {
-
-        // pick up the desired legacy config file
-        URL url = getClass().getClassLoader().getResource("clustered-jboss-ejb-client.properties");
-        logger.info("Using properties file: " + url.toString());
-        System.setProperty("jboss.ejb.client.properties.file.path",url.getPath());
 
         // start a server
         servers[0] = new DummyServer("localhost", 6999, serverNames[0]);
@@ -189,7 +198,6 @@ public class ClusteredInvocationTestCase {
         servers[0].removeCluster(CLUSTER_NAME);
         servers[1].removeCluster(CLUSTER_NAME);
 
-
         if (serversStarted[0]) {
             try {
                 this.servers[0].stop();
@@ -207,6 +215,7 @@ public class ClusteredInvocationTestCase {
             }
         }
         logger.info("Stopped server " + serverNames[1]);
+
     }
 
     /**
@@ -214,6 +223,9 @@ public class ClusteredInvocationTestCase {
      */
     @AfterClass
     public static void afterClass() {
+        // need to reset the context after this test class completes
+        JBossEJBProperties.getContextManager().setGlobalDefault(oldProperties);
+        EJBClientContext.getContextManager().setGlobalDefault(oldContext);
     }
 
 }

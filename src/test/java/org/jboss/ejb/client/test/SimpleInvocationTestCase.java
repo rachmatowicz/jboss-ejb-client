@@ -1,8 +1,10 @@
 package org.jboss.ejb.client.test;
 
 import org.jboss.ejb.client.EJBClient;
+import org.jboss.ejb.client.EJBClientContext;
 import org.jboss.ejb.client.StatelessEJBLocator;
 import org.jboss.ejb.client.URIAffinity;
+import org.jboss.ejb.client.legacy.JBossEJBProperties;
 import org.jboss.ejb.client.test.common.DummyServer;
 import org.jboss.ejb.client.test.common.EchoBean;
 import org.jboss.ejb.client.test.common.Echo;
@@ -26,6 +28,9 @@ public class SimpleInvocationTestCase {
 
     private static final Logger logger = Logger.getLogger(SimpleInvocationTestCase.class);
 
+    // legacy configuration file
+    private static final String LEGACY_CONFOGURATION_FILENAME = "jboss-ejb-client.properties";
+
     private DummyServer server;
     private boolean serverStarted = false;
 
@@ -42,7 +47,6 @@ public class SimpleInvocationTestCase {
      */
     @BeforeClass
     public static void beforeClass() throws Exception {
-
     }
 
     /**
