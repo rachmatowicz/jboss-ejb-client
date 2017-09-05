@@ -29,11 +29,13 @@ import java.security.PrivilegedAction;
 import javax.ejb.CreateException;
 import javax.net.ssl.SSLContext;
 
+import org.jboss.ejb.client.Affinity;
 import org.jboss.ejb.client.AttachmentKey;
 import org.jboss.ejb.client.EJBReceiver;
 import org.jboss.ejb.client.EJBReceiverContext;
 import org.jboss.ejb.client.EJBReceiverInvocationContext;
 import org.jboss.ejb.client.EJBReceiverSessionCreationContext;
+import org.jboss.ejb.client.NodeAffinity;
 import org.jboss.ejb.client.RequestSendFailedException;
 import org.jboss.ejb.client.SessionID;
 import org.jboss.ejb.client.StatefulEJBLocator;
@@ -147,10 +149,9 @@ class RemoteEJBReceiver extends EJBReceiver {
             final ConnectionPeerIdentity identity = futureConnection.getInterruptibly();
             final EJBClientChannel ejbClientChannel = getClientChannel(identity.getConnection());
             final StatefulEJBLocator<?> result = ejbClientChannel.openSession(statelessLocator, identity);
-            if (statelessLocator.getAffinity() != result.getAffinity()) {
-                // older protocol wants to assert a weak affinity; let it
-                context.getClientInvocationContext().setWeakAffinity(result.getAffinity());
-            }
+            // we have the StatefulEJBLocator for the session; now set the weak affinity for the stateful session (the node the session was created on)
+            Affinity weakAffinity = new NodeAffinity(ejbClientChannel.getChannel().getConnection().getRemoteEndpointName());
+            context.getClientInvocationContext().setWeakAffinity(weakAffinity);
             return result.getSessionId();
         } catch (IOException e) {
             final CreateException createException = new CreateException("Failed to create stateful EJB: " + e.getMessage());

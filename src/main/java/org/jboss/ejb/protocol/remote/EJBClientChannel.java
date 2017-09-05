@@ -725,6 +725,13 @@ class EJBClientChannel {
             return outflowHandle;
         }
 
+        /**
+         * The principal function of this method is to prepare the result of the session open invocation,
+         * namely the StatefulEJBLocator made up of sessionID, string affinity..Weak affinity will be set
+         * elsewhere (TODO)
+         *
+         * This method also handles exceptional conditions returned by the server.
+         */
         StatefulEJBLocator<T> getResult() throws Exception {
             Exception e;
             try (ResponseMessageInputStream response = removeInvocationResult()) {
@@ -733,16 +740,10 @@ class EJBClientChannel {
                         final Affinity affinity;
                         int size = StreamUtils.readPackedUnsignedInt32(response);
                         byte[] bytes = new byte[size];
+                        // read the sessionID
                         response.readFully(bytes);
                         // todo: pool unmarshallers?  use very small instance count config?
-                        if (1 <= version && version <= 2) {
-                            try (final Unmarshaller unmarshaller = createUnmarshaller()) {
-                                unmarshaller.start(response);
-                                affinity = unmarshaller.readObject(Affinity.class);
-                                unmarshaller.finish();
-                            }
-                        } else {
-                            affinity = statelessLocator.getAffinity();
+                        if (version >= 3) {
                             final int cmd = response.readUnsignedByte();
                             final XAOutflowHandle outflowHandle = getOutflowHandle();
                             if (outflowHandle != null) {
@@ -758,6 +759,12 @@ class EJBClientChannel {
                                     outflowHandle.nonMasterEnlistment();
                                 }
                             }
+                        }
+                        // read the strong affinity
+                        try (final Unmarshaller unmarshaller = createUnmarshaller()) {
+                            unmarshaller.start(response);
+                            affinity = unmarshaller.readObject(Affinity.class);
+                            unmarshaller.finish();
                         }
                         return statelessLocator.withSessionAndAffinity(SessionID.createSessionID(bytes), affinity);
                     }
@@ -961,15 +968,26 @@ class EJBClientChannel {
                                 outflowHandle.nonMasterEnlistment();
                             }
                         }
+                        // lazy creation of a SFSB session happened on the server
                         if (inputStream.readBoolean()) {
+                            // get the sessionID
                             byte[] encoded = new byte[PackedInteger.readPackedInteger(inputStream)];
                             inputStream.read(encoded);
                             final SessionID sessionID = SessionID.createSessionID(encoded);
+                            // get the strong affinity
+                            final Affinity strongAffinity;
+                            try (final Unmarshaller unmarshaller = createUnmarshaller()) {
+                                unmarshaller.start(Marshalling.createByteInput(inputStream));
+                                strongAffinity = unmarshaller.readObject(Affinity.class);
+                                unmarshaller.finish();
+                            }
+                            // now update the Locator from SLSBLocator to SFSBLoator
                             final EJBClientInvocationContext context = receiverInvocationContext.getClientInvocationContext();
                             EJBClient.convertToStateful(context.getInvokedProxy(), sessionID);
+                            EJBClient.setStrongAffinity(context.getInvokedProxy(), strongAffinity);
 //                            context.setWeakAffinity();
                         }
-                    } catch (RuntimeException | IOException | RollbackException | SystemException e) {
+                    } catch (RuntimeException | IOException | RollbackException | SystemException | ClassNotFoundException e) {
                         receiverInvocationContext.requestFailed(new EJBException(e), getRetryExecutor());
                         safeClose(inputStream);
                         break;

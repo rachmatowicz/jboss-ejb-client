@@ -17,10 +17,14 @@
  */
 package org.jboss.ejb.client.test.common;
 
+import org.jboss.ejb.client.Affinity;
+import org.jboss.ejb.client.ClusterAffinity;
 import org.jboss.ejb.client.EJBIdentifier;
 import org.jboss.ejb.client.EJBLocator;
 import org.jboss.ejb.client.EJBMethodLocator;
 import org.jboss.ejb.client.EJBModuleIdentifier;
+import org.jboss.ejb.client.NodeAffinity;
+import org.jboss.ejb.client.StatelessEJBLocator;
 import org.jboss.ejb.client.UUIDSessionID;
 import org.jboss.ejb.server.Association;
 import org.jboss.ejb.server.CancelHandle;
@@ -34,6 +38,7 @@ import org.jboss.logging.Logger;
 import org.wildfly.common.annotation.NotNull;
 
 import org.jboss.ejb.client.test.common.DummyServer.EJBDeploymentRepository;
+import org.jboss.ejb.client.test.common.DummyServer.EJBInstanceIdentifier;
 import org.jboss.ejb.client.test.common.DummyServer.EJBDeploymentRepositoryListener;
 import org.jboss.ejb.client.test.common.DummyServer.EJBClusterRegistry;
 import org.jboss.ejb.client.test.common.DummyServer.EJBClusterRegistryListener;
@@ -57,10 +62,12 @@ public class DummyAssociationImpl implements Association {
 
     private static final Logger logger = Logger.getLogger(DummyAssociationImpl.class);
 
+    DummyServer server;
     EJBDeploymentRepository deploymentRepository ;
     EJBClusterRegistry clusterRegistry;
 
-    public DummyAssociationImpl(EJBDeploymentRepository repository, EJBClusterRegistry clusterRegistry) {
+    public DummyAssociationImpl(DummyServer server, EJBDeploymentRepository repository, EJBClusterRegistry clusterRegistry) {
+        this.server = server;
         this.deploymentRepository = repository;
         this.clusterRegistry = clusterRegistry;
     }
@@ -79,15 +86,15 @@ public class DummyAssociationImpl implements Association {
         final String beanName = ejbIdentifier.getBeanName();
 
         // search the repository for the bean
-        Object bean = deploymentRepository.findEJB(module, beanName);
+        EJBInstanceIdentifier instanceId = deploymentRepository.findEJB(module, beanName);
+
+        Object bean = instanceId.getInstance();
+        boolean isStateful = instanceId.isStateful();
 
         if (bean == null) {
             invocationRequest.writeNoSuchEJB();;
             return CancelHandle.NULL;
         }
-
-        // now invoke the bean, get the result, return the result
-        // NOTE: we don't model ComponentViews of the bean  as is done in Wildfly; we just look for the invoked methods on the bean itself
 
         // get the resolved content of the request (attachments, affinity, parameters, etc)
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
@@ -101,6 +108,26 @@ public class DummyAssociationImpl implements Association {
 
         final Map<String, Object> attachments = requestContent.getAttachments();
         final EJBLocator<?> ejbLocator = requestContent.getEJBLocator();
+
+        // check if we need to handle lazy session creation
+        if (ejbLocator instanceof StatelessEJBLocator && isStateful) {
+            // create the session ID
+            final UUID uuid = UUID.randomUUID();
+            UUIDSessionID sessionID = new UUIDSessionID(uuid);
+
+            // set the strong affinity for this SFSB based on cluster membership
+            Affinity strongAffinity ;
+            if (clusterRegistry.isClusterMember("ejb")) {
+                strongAffinity = new ClusterAffinity("ejb");
+            } else {
+                strongAffinity = new NodeAffinity(server.getEndpointName());
+            }
+
+            invocationRequest.convertToStateful(sessionID, strongAffinity);
+        }
+
+        // now invoke the bean, get the result, return the result
+        // NOTE: we don't model ComponentViews of the bean  as is done in Wildfly; we just look for the invoked methods on the bean itself
 
         // locate the method to be invoked
         final Method invokedMethod = findMethod(bean.getClass(), invocationRequest.getMethodLocator());
@@ -221,7 +248,14 @@ public class DummyAssociationImpl implements Association {
             final UUID uuid = UUID.randomUUID();
             UUIDSessionID sessionID = new UUIDSessionID(uuid);
 
-            sessionOpenRequest.convertToStateful(sessionID);
+            // set the strong affinity for this SFSB based on cluster membership
+            Affinity strongAffinity ;
+            if (clusterRegistry.isClusterMember("ejb")) {
+                strongAffinity = new ClusterAffinity("ejb");
+            } else {
+                strongAffinity = new NodeAffinity(server.getEndpointName());
+            }
+            sessionOpenRequest.convertToStateful(sessionID, strongAffinity);
         };
         execute(sessionOpenRequest, runnable, false);
         return ignored -> cancelled.set(true);

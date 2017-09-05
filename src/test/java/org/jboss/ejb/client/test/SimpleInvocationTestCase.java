@@ -80,7 +80,7 @@ public class SimpleInvocationTestCase {
         serverStarted = true;
         logger.info("Started server ...");
 
-        server.register(APP_NAME, MODULE_NAME, DISTINCT_NAME, Echo.class.getSimpleName(), new EchoBean());
+        server.register(APP_NAME, MODULE_NAME, DISTINCT_NAME, Echo.class.getSimpleName(), new EchoBean(), false);
         logger.info("Registered module ...");
     }
 

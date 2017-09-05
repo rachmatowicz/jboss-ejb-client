@@ -85,6 +85,18 @@ public class DummyServer {
         this.endpointName = endpointName;
     }
 
+    public int getPort() {
+        return port;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public String getEndpointName() {
+        return endpointName;
+    }
+
     public void start() throws Exception {
         logger.info("Starting " + this);
 
@@ -131,7 +143,7 @@ public class DummyServer {
 
         // set up an association to handle invocations, session creations and module/toopology listensrs
         // the association makes use of a module deployment repository as well a sa  cluster registry
-        Association dummyAssociation = new DummyAssociationImpl(deploymentRepository, clusterRegistry);
+        Association dummyAssociation = new DummyAssociationImpl(this, deploymentRepository, clusterRegistry);
 
         // set up a remoting transaction service
         RemotingTransactionService.Builder txnServiceBuilder = RemotingTransactionService.builder();
@@ -159,8 +171,8 @@ public class DummyServer {
     }
 
     // module deployment interface
-    public void register(final String appName, final String moduleName, final String distinctName, final String beanName, final Object instance) {
-        deploymentRepository.register(appName, moduleName, distinctName, beanName, instance);
+    public void register(final String appName, final String moduleName, final String distinctName, final String beanName, final Object instance, final boolean isStateful) {
+        deploymentRepository.register(appName, moduleName, distinctName, beanName, instance, isStateful);
     }
 
     public void unregister(final String appName, final String moduleName, final String distinctName, final String beanName) {
@@ -190,20 +202,41 @@ public class DummyServer {
     }
 
     /**
+     * Represents a bean instance and its stateful/statless status
+     */
+    public class EJBInstanceIdentifier {
+        boolean isStateful ;
+        Object instance;
+
+        public EJBInstanceIdentifier(Object instance, boolean isStateful) {
+            this.instance = instance;
+            this.isStateful = isStateful;
+        }
+
+        public boolean isStateful() {
+            return isStateful;
+        }
+
+        public Object getInstance() {
+            return instance;
+        }
+    }
+
+    /**
      * Allows keeping track of which modules are deployed on this server.
      */
     public class EJBDeploymentRepository {
-        Map<EJBModuleIdentifier, Map<String,Object>> registeredEJBs = new HashMap<>();
+        Map<EJBModuleIdentifier, Map<String,EJBInstanceIdentifier>> registeredEJBs = new HashMap<>();
         List<EJBDeploymentRepositoryListener> listeners = new ArrayList<>();
 
-        void register(final String appName, final String moduleName, final String distinctName, final String beanName, final Object instance) {
+        void register(final String appName, final String moduleName, final String distinctName, final String beanName, final Object instance, final boolean isStateful) {
             final EJBModuleIdentifier moduleID = new EJBModuleIdentifier(appName, moduleName, distinctName);
-            Map<String, Object> ejbs = this.registeredEJBs.get(moduleID);
+            Map<String, EJBInstanceIdentifier> ejbs = this.registeredEJBs.get(moduleID);
             if (ejbs == null) {
-                ejbs = new HashMap<String, Object>();
+                ejbs = new HashMap<String, EJBInstanceIdentifier>();
                 this.registeredEJBs.put(moduleID, ejbs);
             }
-            ejbs.put(beanName, instance);
+            ejbs.put(beanName, new EJBInstanceIdentifier(instance, isStateful));
 
             // notify listeners
             List<EJBModuleIdentifier> availableModules = new ArrayList<>();
@@ -215,7 +248,7 @@ public class DummyServer {
 
         void unregister(final String appName, final String moduleName, final String distinctName, final String beanName) {
             final EJBModuleIdentifier moduleID = new EJBModuleIdentifier(appName, moduleName, distinctName);
-            Map<String, Object> ejbs = this.registeredEJBs.get(moduleID);
+            Map<String, EJBInstanceIdentifier> ejbs = this.registeredEJBs.get(moduleID);
             if (ejbs != null) {
                 ejbs.remove(beanName);
             }
@@ -227,14 +260,14 @@ public class DummyServer {
             }
         }
 
-        Object findEJB(EJBModuleIdentifier module, String beanName) {
-            final Map<String, Object> ejbs = this.registeredEJBs.getOrDefault(module, Collections.emptyMap());
-            final Object beanInstance = ejbs.get(beanName);
-            if (beanInstance == null) {
+        EJBInstanceIdentifier findEJB(EJBModuleIdentifier module, String beanName) {
+            final Map<String, EJBInstanceIdentifier> ejbs = this.registeredEJBs.getOrDefault(module, Collections.emptyMap());
+            final EJBInstanceIdentifier beanInstanceIdentifier = ejbs.get(beanName);
+            if (beanInstanceIdentifier == null) {
                 // any exception will be handled by the caller on seeing null
                 return null;
             }
-            return beanInstance ;
+            return beanInstanceIdentifier ;
         }
 
         void addListener(EJBDeploymentRepositoryListener listener) {
@@ -271,6 +304,10 @@ public class DummyServer {
         List<EJBClusterRegistryListener> listeners = new ArrayList<EJBClusterRegistryListener>();
 
         EJBClusterRegistry() {
+        }
+
+        boolean isClusterMember(String clusterName) {
+            return joinedClusters.keySet().contains(clusterName);
         }
 
         void addCluster(ClusterInfo cluster) {

@@ -21,6 +21,7 @@ package org.jboss.ejb.server;
 import java.net.SocketAddress;
 import java.util.concurrent.Executor;
 
+import org.jboss.ejb.client.Affinity;
 import org.jboss.ejb.client.EJBIdentifier;
 import org.jboss.ejb.client.SessionID;
 import org.wildfly.common.annotation.NotNull;
@@ -124,11 +125,12 @@ public interface Request {
      * is stateful but the locator is stateless, in order to auto-create the session.
      *
      * @param sessionId the new session ID (must not be {@code null})
+     * @param strongAffinity the strong affinity associated with the session creation
      * @throws IllegalArgumentException if the current invocation cannot be converted to a stateful invocation because
      *  it is already stateful or the target EJB is not a stateful EJB
      * @throws IllegalStateException if the invocation was already converted to be stateful with a different session ID
      */
-    void convertToStateful(@NotNull SessionID sessionId) throws IllegalArgumentException, IllegalStateException;
+    void convertToStateful(@NotNull SessionID sessionId, @NotNull Affinity strongAffinity) throws IllegalArgumentException, IllegalStateException;
 
     /**
      * Get the provider interface associated with the request.

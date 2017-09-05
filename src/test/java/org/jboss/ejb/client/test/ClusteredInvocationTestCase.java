@@ -104,10 +104,10 @@ public class ClusteredInvocationTestCase {
         logger.info("Started server " + serverNames[1]);
 
         // deploy modules
-        servers[0].register(APP_NAME, MODULE_NAME, DISTINCT_NAME, Echo.class.getSimpleName(), new EchoBean());
+        servers[0].register(APP_NAME, MODULE_NAME, DISTINCT_NAME, Echo.class.getSimpleName(), new EchoBean(), false);
         logger.info("Registered module on server " + servers[0]);
 
-        servers[1].register(APP_NAME, MODULE_NAME, DISTINCT_NAME, Echo.class.getSimpleName(), new EchoBean());
+        servers[1].register(APP_NAME, MODULE_NAME, DISTINCT_NAME, Echo.class.getSimpleName(), new EchoBean(), false);
         logger.info("Registered module on server " + servers[1]);
 
         // define clusters

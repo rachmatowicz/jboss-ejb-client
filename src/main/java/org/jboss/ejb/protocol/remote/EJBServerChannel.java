@@ -490,6 +490,7 @@ final class EJBServerChannel {
     abstract class RemotingRequest implements Request {
         final int invId;
         SessionID sessionId;
+        Affinity strongAffinity;
         final SecurityIdentity identity;
 
         RemotingRequest(final int invId, final SecurityIdentity identity) {
@@ -585,15 +586,32 @@ final class EJBServerChannel {
             }
         }
 
-        public void convertToStateful(@NotNull final SessionID sessionId) throws IllegalArgumentException, IllegalStateException {
+        /**
+         * This method guarantees that,on any given request,session creation happens at most once.
+         *
+         * @param sessionId the new session ID (must not be {@code null})
+         * @param strongAffinity the strong affinity associated with the session creation (must not be (@code null))
+         * @throws IllegalArgumentException
+         * @throws IllegalStateException
+         */
+        public void convertToStateful(@NotNull final SessionID sessionId, @NotNull final Affinity strongAffinity) throws IllegalArgumentException, IllegalStateException {
             Assert.checkNotNullParam("sessionId", sessionId);
+            Assert.checkNotNullParam("strongAffinity", strongAffinity);
             final SessionID ourSessionId = this.sessionId;
+            final Affinity ourStrongAffinity = this.strongAffinity;
             if (ourSessionId != null) {
                 if (! sessionId.equals(ourSessionId)) {
                     throw new IllegalStateException();
                 }
             } else {
                 this.sessionId = sessionId;
+            }
+            if (ourStrongAffinity != null) {
+                if (! strongAffinity.equals(ourStrongAffinity)) {
+                    throw new IllegalStateException();
+                }
+            } else {
+                this.strongAffinity = strongAffinity;
             }
         }
 
@@ -669,24 +687,32 @@ final class EJBServerChannel {
             writeFailure(exception);
         }
 
-        public void convertToStateful(@NotNull final SessionID sessionId) throws IllegalArgumentException, IllegalStateException {
-            super.convertToStateful(sessionId);
+        /**
+         * A SFSB proxy maintains sessionID of the session created, strong affinity and weak affinity.
+         * We return here the sessionID and the stroing affinity; weak affinity should also be set here
+         * but as an optimization, we set it on the client to this node.
+         * @param sessionId
+         * @param strongAffinity
+         * @throws IllegalArgumentException
+         * @throws IllegalStateException
+         */
+        public void convertToStateful(@NotNull final SessionID sessionId, @NotNull final Affinity strongAffinity) throws IllegalArgumentException, IllegalStateException {
+            super.convertToStateful(sessionId, strongAffinity);
             try (MessageOutputStream os = messageTracker.openMessageUninterruptibly()) {
                 os.writeByte(Protocol.OPEN_SESSION_RESPONSE);
                 os.writeShort(invId);
+                // all versions require sessionID
                 final byte[] encodedForm = sessionId.getEncodedForm();
                 PackedInteger.writePackedInteger(os, encodedForm.length);
                 os.write(encodedForm);
-                if (1 <= version && version <= 2) {
-                    final Marshaller marshaller = marshallerFactory.createMarshaller(configuration);
-                    marshaller.start(new NoFlushByteOutput(Marshalling.createByteOutput(os)));
-                    // V2 needs weak affinity to the current node
-                    marshaller.writeObject(new NodeAffinity(channel.getConnection().getEndpoint().getName()));
-                    marshaller.finish();
-                } else {
-                    assert version >= 3;
+                if (version >= 3) {
                     os.writeByte(txnCmd);
                 }
+                // all versions require strong affinity
+                final Marshaller marshaller = marshallerFactory.createMarshaller(configuration);
+                marshaller.start(new NoFlushByteOutput(Marshalling.createByteOutput(os)));
+                marshaller.writeObject(strongAffinity);
+                marshaller.finish();
             } catch (IOException e) {
                 // nothing to do at this point; the client doesn't want the response
                 Logs.REMOTING.trace("EJB session open response write failed", e);
@@ -869,6 +895,11 @@ final class EJBServerChannel {
                             }
                             final Marshaller marshaller = marshallerFactory.createMarshaller(configuration);
                             marshaller.start(new NoFlushByteOutput(Marshalling.createByteOutput(os)));
+                            if (version >= 3) {
+                                if (sessionId != null) {
+                                    marshaller.writeObject(strongAffinity);
+                                }
+                            }
                             marshaller.writeObject(result);
                             attachments.remove(EJBClient.SOURCE_ADDRESS_KEY);
                             int count = attachments.size();
