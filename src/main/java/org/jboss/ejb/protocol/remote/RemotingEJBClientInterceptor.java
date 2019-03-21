@@ -72,6 +72,7 @@ public final class RemotingEJBClientInterceptor implements EJBClientInterceptor 
     }
 
     private void removeNode(final AbstractInvocationContext context) {
+        Thread.dumpStack();
         final Affinity targetAffinity = context.getTargetAffinity();
         if (targetAffinity instanceof NodeAffinity) {
             final RemoteEJBReceiver ejbReceiver = context.getClientContext().getAttachment(RemoteTransportProvider.ATTACHMENT_KEY);
@@ -80,6 +81,7 @@ public final class RemotingEJBClientInterceptor implements EJBClientInterceptor 
                 if (ejbClientChannel != null) {
                     final NodeInformation nodeInformation = ejbReceiver.getDiscoveredNodeRegistry().getNodeInformation(((NodeAffinity) targetAffinity).getNodeName());
                     if (nodeInformation != null) {
+                        System.out.println("RemotingEJBClientInterceptor: REMOVING MODULE on node " + nodeInformation.getNodeName() + ": " + context.getLocator().getIdentifier().getModuleIdentifier());
                         nodeInformation.removeModule(ejbClientChannel, context.getLocator().getIdentifier().getModuleIdentifier());
                     }
                 }

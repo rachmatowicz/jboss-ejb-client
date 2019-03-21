@@ -541,6 +541,8 @@ final class EJBServerChannel {
         }
 
         public void writeNoSuchEJB() {
+            System.out.println("WRITING NO SUCH EJB!");
+            Thread.dumpStack();
             final String message = Logs.REMOTING.remoteMessageNoSuchEJB(getEJBIdentifier());
             try (MessageOutputStream os = messageTracker.openMessageUninterruptibly()) {
                 os.writeByte(Protocol.NO_SUCH_EJB);

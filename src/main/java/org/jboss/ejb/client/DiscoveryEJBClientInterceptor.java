@@ -484,14 +484,20 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
         final Set<URI> set = context.getAttachment(BL_KEY);
         try (final ServicesQueue queue = discover(filterSpec)) {
             ServiceURL serviceURL;
+            Logs.INVOCATION.tracef("Performing cluster discovery: services queue problems = " + queue.getProblems());
             while ((serviceURL = queue.takeService()) != null) {
                 final URI location = serviceURL.getLocationURI();
+                Logs.INVOCATION.tracef("Performing cluster discovery, found candidate ServiceURL in cluster = %s, blacklisted = %s",
+                        location, (set == null || !set.contains(location)) ? false : true);
                 if (set == null || ! set.contains(location)) {
                     final EJBReceiver transportProvider = clientContext.getTransportProvider(location.getScheme());
+                    Logs.INVOCATION.tracef("Performing cluster discovery, checking transport: check failed = %s",
+                            (transportProvider != null && satisfiesSourceAddress(serviceURL, transportProvider)) ? false : true);
                     if (transportProvider != null && satisfiesSourceAddress(serviceURL, transportProvider)) {
                         final AttributeValue nodeNameValue = serviceURL.getFirstAttributeValue(FILTER_ATTR_NODE);
                         // should always be true, but no harm in checking
                         if (nodeNameValue != null) {
+                            Logs.INVOCATION.tracef("Performing cluster discovery: putting node into set 'nodes'");
                             nodes.put(nodeNameValue.toString(), location);
                         }
                     }
@@ -502,15 +508,18 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
             Thread.currentThread().interrupt();
             throw Logs.MAIN.operationInterrupted();
         }
+        Logs.INVOCATION.tracef("Performing cluster discovery, nodes before transaction filtering = %s", nodes);
 
         // Prefer nodes associated with a transaction, if possible
         nodes = tryFilterToPreferredNodes(context, nodes);
+
+        Logs.INVOCATION.tracef("Performing cluster discovery, nodes after transaction filtering = %s", nodes);
 
         final EJBLocator<?> locator = context.getLocator();
 
         if (nodes.isEmpty()) {
 
-            Logs.INVOCATION.tracef("Performed cluster discovery, nodes is empty; trying an initial ");
+            Logs.INVOCATION.tracef("Performed cluster discovery, nodes is empty; trying an initial context PROVIDER_URL entry");
 
             final NamingProvider namingProvider = context.getAttachment(EJBRootContext.NAMING_PROVIDER_ATTACHMENT_KEY);
             if (namingProvider != null) {
@@ -570,6 +579,8 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
         if (attachment == null) {
             return nodes;
         }
+
+        Logs.INVOCATION.tracef("Peforming cluster discovery, preferred nodes = %s", attachment);
 
         HashSet<URI> preferred = new HashSet<>(attachment);
         Map<String, URI> result = null;

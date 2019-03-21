@@ -1061,6 +1061,8 @@ class EJBClientChannel {
                 }
                 case Protocol.NO_SUCH_EJB: {
                     free();
+                    Logs.INVOCATION.debugf("Received NO_SUCH_EJB message - NOT GOOD");
+
                     try {
                         if (version >= 3) {
                             final XAOutflowHandle outflowHandle = getOutflowHandle();

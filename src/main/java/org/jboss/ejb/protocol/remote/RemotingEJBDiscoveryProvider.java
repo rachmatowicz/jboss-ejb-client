@@ -106,6 +106,8 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider, Discovere
     }
 
     public void removeNode(final String clusterName, final String nodeName) {
+        System.out.println("REMOVING NODE!");
+        Thread.dumpStack();
         clusterNodes.getOrDefault(clusterName, Collections.emptySet()).remove(nodeName);
     }
 
@@ -116,8 +118,10 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider, Discovere
     }
 
     public DiscoveryRequest discover(final ServiceType serviceType, final FilterSpec filterSpec, final DiscoveryResult result) {
+        Logs.INVOCATION.tracef("Calling RemotingEJBDiscoveryProvider.discover()");
         if (! serviceType.implies(ServiceType.of("ejb", "jboss"))) {
             // only respond to requests for JBoss EJB services
+            Logs.INVOCATION.tracef("EJB discovery provider: wrong service type(%s), returning!", serviceType.toString());
             result.complete();
             return DiscoveryRequest.NULL;
         }
@@ -125,11 +129,13 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider, Discovere
         final RemoteEJBReceiver ejbReceiver = ejbClientContext.getAttachment(RemoteTransportProvider.ATTACHMENT_KEY);
         if (ejbReceiver == null) {
             // ???
+            Logs.INVOCATION.tracef("EJB discovery provider: no EJBReceiver available, returning!");
             result.complete();
             return DiscoveryRequest.NULL;
         }
 
         final List<EJBClientConnection> configuredConnections = ejbClientContext.getConfiguredConnections();
+        Logs.INVOCATION.tracef("EJB discovery provider: size configured connections = %s", configuredConnections.size());
 
         final DiscoveryAttempt discoveryAttempt = new DiscoveryAttempt(serviceType, filterSpec, result, ejbReceiver, AuthenticationContext.captureCurrent());
 
@@ -138,6 +144,7 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider, Discovere
         // first pass
         for (EJBClientConnection connection : configuredConnections) {
             if (! connection.isForDiscovery()) {
+                Logs.INVOCATION.tracef("EJB discovery provider: found non-discovery connection, skipping");
                 continue;
             }
             discoveryConnections = true;

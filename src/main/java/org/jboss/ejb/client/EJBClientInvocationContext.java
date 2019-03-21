@@ -369,6 +369,7 @@ public final class EJBClientInvocationContext extends AbstractInvocationContext 
                 }
                 // not reachable
             } catch (Throwable t) {
+                log.tracef("Encountered exception when calling sendRequestInitial: exception = %s)", t.getMessage());
                 // back to the start of the chain; decide what to do next.
                 synchronized (lock) {
                     if (state == State.SENDING) {
@@ -405,6 +406,7 @@ public final class EJBClientInvocationContext extends AbstractInvocationContext 
                             transition(State.READY);
                             return;
                         }
+                        log.tracef("retrying the invocation!: remaining retries = %d", remainingRetries);
                         // retry SENDING
                         if (pendingFailure != null) {
                             addSuppressed(pendingFailure);
@@ -605,6 +607,8 @@ public final class EJBClientInvocationContext extends AbstractInvocationContext 
                 }
                 return result;
             } catch (Throwable t) {
+                //log.tracef("Encountered exception while calling getResult(): exception = %s", t.getMessage());
+                log.tracef("Encountered exception while calling getResult(): exception = %s", t.toString());
                 if (idx == 0) {
                     synchronized (lock) {
                         // retry if we can
@@ -613,6 +617,7 @@ public final class EJBClientInvocationContext extends AbstractInvocationContext 
                         final int remainingRetries = this.remainingRetries;
                         final boolean retryRequested = this.retryRequested;
                         if (retryRequested && remainingRetries > 0) {
+                            log.tracef("Will retry (requested = %s, remaining = %d)", retryRequested, remainingRetries);
                             if (suppressedExceptions == null) {
                                 suppressedExceptions = this.suppressedExceptions = new ArrayList<>();
                             }
