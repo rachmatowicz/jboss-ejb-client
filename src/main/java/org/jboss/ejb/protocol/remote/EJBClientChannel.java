@@ -173,6 +173,7 @@ class EJBClientChannel {
         boolean leaveOpen = false;
         try {
             final int msg = message.readUnsignedByte();
+            final String endpointName = getChannel().getConnection().getRemoteEndpointName();
             switch (msg) {
                 case Protocol.TXN_RESPONSE:
                 case Protocol.INVOCATION_RESPONSE:
@@ -207,7 +208,7 @@ class EJBClientChannel {
                         final EJBModuleIdentifier moduleIdentifier = new EJBModuleIdentifier(appName, moduleName, distinctName);
                         moduleList[i] = moduleIdentifier;
 
-                        Logs.INVOCATION.debugf("Received MODULE_AVAILABLE(%x) message for module %s", msg, moduleIdentifier);
+                        Logs.INVOCATION.debugf("Received MODULE_AVAILABLE(%x) message from node %s for module %s", msg, endpointName, moduleIdentifier);
 
                     }
                     nodeInformation.addModules(this, moduleList);
@@ -224,7 +225,7 @@ class EJBClientChannel {
                         final String distinctName = message.readUTF();
                         final EJBModuleIdentifier moduleIdentifier = new EJBModuleIdentifier(appName, moduleName, distinctName);
                         set.add(moduleIdentifier);
-                        Logs.INVOCATION.debugf("Received MODULE_UNAVAILABLE(%x) message for module %s", msg, moduleIdentifier);
+                        Logs.INVOCATION.debugf("Received MODULE_UNAVAILABLE(%x) message from node %s for module %s", msg, endpointName, moduleIdentifier);
                     }
                     nodeInformation.removeModules(this, set);
                     break;
@@ -239,7 +240,7 @@ class EJBClientChannel {
                             final String nodeName = message.readUTF();
                             discoveredNodeRegistry.addNode(clusterName, nodeName, channel.getConnection().getPeerURI());
                             final NodeInformation nodeInformation = discoveredNodeRegistry.getNodeInformation(nodeName);
-                            Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY(%x) message, registering cluster %s to node %s", msg, clusterName, nodeName);
+                            Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY(%x) message from node %s, registering cluster %s to node %s", msg, nodeName, clusterName, nodeName);
 
                             // create and register the concrete ServiceURLs for each client mapping
                             int mappingCount = PackedInteger.readPackedInteger(message);
@@ -254,7 +255,7 @@ class EJBClientChannel {
                                 final int destPort = message.readUnsignedShort();
                                 final InetSocketAddress destination = new InetSocketAddress(destHost, destPort);
                                 nodeInformation.addAddress(channel.getConnection().getProtocol(), clusterName, block, destination);
-                                Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY(%x) message block, registering block %s to address %s", msg, block, destination);
+                                Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY(%x) message block from node %s, registering block %s to address %s", msg, nodeName, block, destination);
                             }
                         }
                     }
@@ -267,7 +268,7 @@ class EJBClientChannel {
                         String clusterName = message.readUTF();
                         discoveredNodeRegistry.removeCluster(clusterName);
 
-                        Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY_REMOVAL(%x) message for cluster %s", msg, clusterName);
+                        Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY_REMOVAL(%x) message from node %s for cluster %s", msg, endpointName, clusterName);
 
                         for (NodeInformation nodeInformation : discoveredNodeRegistry.getAllNodeInformation()) {
                             nodeInformation.removeCluster(clusterName);
@@ -286,7 +287,7 @@ class EJBClientChannel {
                             final NodeInformation nodeInformation = discoveredNodeRegistry.getNodeInformation(nodeName);
                             nodeInformation.removeCluster(clusterName);
 
-                            Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY_NODE_REMOVAL(%x) message for (cluster, node) = (%s, %s)", msg, clusterName, nodeName);
+                            Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY_NODE_REMOVAL(%x) message from node %s for (cluster, node) = (%s, %s)", msg, nodeName, clusterName, nodeName);
 
                         }
                     }

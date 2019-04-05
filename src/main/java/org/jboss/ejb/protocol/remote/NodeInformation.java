@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import org.jboss.ejb._private.Logs;
 import org.jboss.ejb.client.EJBClientContext;
 import org.jboss.ejb.client.EJBModuleIdentifier;
 import org.wildfly.common.net.CidrAddress;
@@ -68,6 +69,7 @@ final class NodeInformation {
         if (invalid) return false;
         boolean found = false;
         List<ServiceURL> serviceURLCache = getServiceURLCache();
+        Logs.INVOCATION.tracef("NodeInformation: calling discover() for DNR node %s, serviceURLCache = %s", getNodeName(), getServiceURLCache());
         for (ServiceURL serviceURL : serviceURLCache) {
             if (serviceURL.satisfies(filterSpec) && serviceType.implies(serviceURL)) {
                 found = true;

@@ -182,6 +182,14 @@ public final class TransactionInterceptor implements EJBClientInterceptor {
         }
 
         @Override
+        public String toString() {
+            return "Application{" +
+                    "application='" + application + '\'' +
+                    ", distinctName='" + distinctName + '\'' +
+                    '}';
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (o == this) {
                 return true;

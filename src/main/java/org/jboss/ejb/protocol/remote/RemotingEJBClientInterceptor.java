@@ -22,6 +22,7 @@ import static org.jboss.ejb.client.annotation.ClientInterceptorPriority.JBOSS_AF
 
 import javax.ejb.NoSuchEJBException;
 
+import org.jboss.ejb._private.Logs;
 import org.jboss.ejb.client.AbstractInvocationContext;
 import org.jboss.ejb.client.Affinity;
 import org.jboss.ejb.client.EJBClientInterceptor;
@@ -56,6 +57,11 @@ public final class RemotingEJBClientInterceptor implements EJBClientInterceptor 
             return context.getResult();
         } catch (NoSuchEJBException e) {
             // EJB is not present on target node!
+            if (context.getTargetAffinity() instanceof NodeAffinity) {
+                Logs.INVOCATION.tracef("RemotingEJBClientInterceptor: NoSuchEJBException received, removing module %s for node %s",
+                        context.getLocator().getIdentifier().getModuleIdentifier(),
+                        ((NodeAffinity) context.getTargetAffinity()).getNodeName());
+            }
             removeNode(context);
             throw e;
         }
@@ -66,6 +72,11 @@ public final class RemotingEJBClientInterceptor implements EJBClientInterceptor 
             return context.proceed();
         } catch (NoSuchEJBException e) {
             // EJB is not present on target node!
+            if (context.getTargetAffinity() instanceof NodeAffinity) {
+                Logs.INVOCATION.tracef("RemotingEJBClientInterceptor: NoSuchEJBException received, removing module %s for node %s",
+                        context.getLocator().getIdentifier().getModuleIdentifier(),
+                        ((NodeAffinity) context.getTargetAffinity()).getNodeName());
+            }
             removeNode(context);
             throw e;
         }

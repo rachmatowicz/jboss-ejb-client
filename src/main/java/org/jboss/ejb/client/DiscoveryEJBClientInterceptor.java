@@ -89,6 +89,7 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
     public void handleInvocation(final EJBClientInvocationContext context) throws Exception {
         if (context.getDestination() != null) {
             // already discovered!
+            Logs.INVOCATION.tracef("DiscoveryEJBClientInterceptor: destination already set, skipping (destination = %s)", context.getDestination());
             context.sendRequest();
             return;
         }
@@ -235,6 +236,7 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
 
     static boolean isBlackListed(AbstractInvocationContext context, URI destination) {
         final Set<URI> blacklist = context.getAttachment(BL_KEY);
+        Logs.INVOCATION.tracef("Checking Blacklist (BL = %s, uri = %s)", context.getAttachment(BL_KEY) == null ? "NULL" : context.getAttachment(BL_KEY), destination);
         return blacklist != null && blacklist.contains(destination);
     }
 
@@ -314,6 +316,7 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
             ServiceURL serviceURL;
             while ((serviceURL = queue.takeService()) != null) {
                 final URI location = serviceURL.getLocationURI();
+                Logs.INVOCATION.tracef("Performing first-match discovery: got service URL location = %s, BL = %s", location, set);
                 if (set == null || ! set.contains(location)) {
                     // Got a match!  See if there's a node affinity to set for the invocation.
                     final AttributeValue nodeValue = serviceURL.getFirstAttributeValue(FILTER_ATTR_NODE);
@@ -372,6 +375,7 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
             ServiceURL serviceURL;
             while ((serviceURL = queue.takeService()) != null) {
                 final URI location = serviceURL.getLocationURI();
+                Logs.INVOCATION.tracef("Performing any discovery: got service URL location = %s, BL = %s", location, blacklist);
                 if (blacklist == null || ! blacklist.contains(location)) {
                     // Got a match!  See if there's a node affinity to set for the invocation.
                     final AttributeValue nodeValue = serviceURL.getFirstAttributeValue(FILTER_ATTR_NODE);
@@ -425,7 +429,7 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
             final Map.Entry<URI, String> entry = nodes.entrySet().iterator().next();
             location = entry.getKey();
             nodeName = entry.getValue();
-            Logs.INVOCATION.tracef("Performed first-match discovery(target affinity(node) = %s, destination = %s)", nodeName, location);
+            Logs.INVOCATION.tracef("Performed any discovery(target affinity(node) = %s, destination = %s)", nodeName, location);
         } else if (nodeless == 0) {
             // use the deployment node selector
             DeploymentNodeSelector selector = context.getClientContext().getDeploymentNodeSelector();
@@ -437,7 +441,7 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
             if (location == null) {
                 throw Logs.INVOCATION.selectorReturnedUnknownNode(selector, nodeName);
             }
-            Logs.INVOCATION.tracef("Performed first-match discovery, nodes > 1, deployment selector used(target affinity(node) = %s, destination = %s)", nodeName, location);
+            Logs.INVOCATION.tracef("Performed any discovery, nodes > 1, deployment selector used(target affinity(node) = %s, destination = %s)", nodeName, location);
         } else {
             // todo: configure on client context
             DiscoveredURISelector selector = DiscoveredURISelector.RANDOM;
@@ -449,7 +453,7 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
             if (nodeName == null) {
                 throw Logs.INVOCATION.selectorReturnedUnknownNode(selector, location.toString());
             }
-            Logs.INVOCATION.tracef("Performed first-match discovery, nodes > 1, URI selector used(target affinity(node) = %s, destination = %s)", nodeName, location);
+            Logs.INVOCATION.tracef("Performed any discovery, nodes > 1, URI selector used(target affinity(node) = %s, destination = %s)", nodeName, location);
         }
 
         // TODO DeploymentNodeSelector should be enhanced to handle URIs that are members of more than one cluster
@@ -487,6 +491,7 @@ public final class DiscoveryEJBClientInterceptor implements EJBClientInterceptor
             ServiceURL serviceURL;
             while ((serviceURL = queue.takeService()) != null) {
                 final URI location = serviceURL.getLocationURI();
+                Logs.INVOCATION.tracef("Performing cluster discovery: got service URL location = %s, BL = %s", location, set);
                 if (set == null || ! set.contains(location)) {
                     final EJBReceiver transportProvider = clientContext.getTransportProvider(location.getScheme());
                     if (transportProvider != null && satisfiesSourceAddress(serviceURL, transportProvider)) {

@@ -109,6 +109,7 @@ public final class TransactionPostDiscoveryInterceptor implements EJBClientInter
             Application application = toApplication(identifier);
             URI existing = applications.putIfAbsent(application, destination);
             if (existing != null) {
+                Logs.INVOCATION.tracef("TransactionPostDiscoveryInterceptor: adjusting destination based on existing application entry: application = %s, old = %s, new = %s", application, destination, existing);
                 // Someone else set a mapping, use it instead
                 context.setDestination(existing);
             } else {

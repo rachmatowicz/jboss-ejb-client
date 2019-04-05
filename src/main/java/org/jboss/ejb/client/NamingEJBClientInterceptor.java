@@ -123,7 +123,9 @@ public final class NamingEJBClientInterceptor implements EJBClientInterceptor {
         final ProviderEnvironment providerEnvironment = namingProvider.getProviderEnvironment();
         final List<URI> providerUris = providerEnvironment.getProviderUris();
 
+        Logs.INVOCATION.tracef("NamingEJBClientInterceptor: provider URIs: %s", providerUris);
         List<URI> uris = findPreferredURIs(context, providerUris);
+        Logs.INVOCATION.tracef("NamingEJBClientInterceptor: preferred URIs: %s", uris);
         if (uris == null) {
             uris = new ArrayList<>(providerUris.size());
             for (URI uri : providerUris) {
@@ -139,9 +141,13 @@ public final class NamingEJBClientInterceptor implements EJBClientInterceptor {
             return false;
         } else if (size == 1) {
             context.setDestination(uris.get(0));
+            Logs.INVOCATION.tracef("NamingEJBClientInterceptor: destination set: %s", uris.get(0));
             return true;
         } else {
-            context.setDestination(uris.get(ThreadLocalRandom.current().nextInt(size)));
+            int index = ThreadLocalRandom.current().nextInt(size);
+            context.setDestination(uris.get(index));
+            Logs.INVOCATION.tracef("NamingEJBClientInterceptor: destination set to random PROVIDER_URL: %s", uris.get(index));
+//            context.setDestination(uris.get(ThreadLocalRandom.current().nextInt(size)));
         }
 
         if (context instanceof EJBSessionCreationInvocationContext) {
