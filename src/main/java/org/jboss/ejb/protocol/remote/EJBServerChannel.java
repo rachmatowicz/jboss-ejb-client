@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
@@ -171,6 +172,9 @@ final class EJBServerChannel {
         public void handleMessage(final Channel channel, final MessageInputStream message) {
             try {
                 final int code = message.readUnsignedByte();
+                if (Logs.INVOCATION.isTraceEnabled()) {
+                    Logs.INVOCATION.tracef("Got message with header 0x%x on channel %s", code, channel);
+                }
                 switch (code) {
                     case Protocol.COMPRESSED_INVOCATION_MESSAGE:
                     case Protocol.INVOCATION_REQUEST: {
@@ -1188,6 +1192,11 @@ final class EJBServerChannel {
                         }
                     }
                 }
+
+                if (Logs.INVOCATION.isTraceEnabled()) {
+                    List<String> clusters = clusterInfoList.stream().map(clusterInfo -> clusterInfo.getClusterName()).collect(Collectors.toList());
+                    Logs.INVOCATION.tracef("Writing cluster formation message for cluster(s) %s, to channel %s", clusters, channel);
+                }
             } catch (IOException e) {
                 // nothing to do at this point; the client doesn't want the response
                 Logs.REMOTING.trace("EJB cluster message write failed", e);
@@ -1200,6 +1209,10 @@ final class EJBServerChannel {
                 PackedInteger.writePackedInteger(os, clusterNames.size());
                 for (String clusterName : clusterNames) {
                     os.writeUTF(clusterName);
+                }
+
+                if (Logs.INVOCATION.isTraceEnabled()) {
+                    Logs.INVOCATION.tracef("Cluster(s) %s removed, writing cluster removal message to channel %s", clusterNames, channel);
                 }
             } catch (IOException e) {
                 // nothing to do at this point; the client doesn't want the response
@@ -1230,6 +1243,12 @@ final class EJBServerChannel {
                         os.writeShort(mappingInfo.getDestinationPort());
                     }
                 }
+
+                if (Logs.INVOCATION.isTraceEnabled()) {
+                    String clusterName = clusterInfo.getClusterName();
+                    List<String> nodes = clusterInfo.getNodeInfoList().stream().map(nodeInfo->nodeInfo.getNodeName()).collect(Collectors.toList());
+                    Logs.INVOCATION.tracef("Following nodes added to cluster %s: %s, writing protocol message to channel %s", clusterName, nodes, channel);
+                }
             } catch (IOException e) {
                 // nothing to do at this point; the client doesn't want the response
                 Logs.REMOTING.trace("EJB cluster message write failed", e);
@@ -1246,6 +1265,14 @@ final class EJBServerChannel {
                     PackedInteger.writePackedInteger(os, nodeNamesList.size());
                     for (String name : nodeNamesList) {
                         os.writeUTF(name);
+                    }
+                }
+
+                for (ClusterRemovalInfo removalInfo : clusterRemovalInfoList) {
+                    if (Logs.INVOCATION.isTraceEnabled()) {
+                        String clusterName = removalInfo.getClusterName();
+                        List<String> nodes = removalInfo.getNodeNames();
+                        Logs.INVOCATION.tracef("Following nodes removed from cluster %s: %s, writing protocol message to channel %s", clusterName, nodes, channel);
                     }
                 }
             } catch (IOException e) {
@@ -1278,6 +1305,10 @@ final class EJBServerChannel {
                     os.writeUTF(moduleName == null ? "" : moduleName);
                     final String distinctName = module.getDistinctName();
                     os.writeUTF(distinctName == null ? "" : distinctName);
+                }
+                if (Logs.INVOCATION.isTraceEnabled()) {
+                    List<String> moduleNames = modules.stream().map(moduleIdentifier->moduleIdentifier.toString()).collect(Collectors.toList());
+                    Logs.INVOCATION.tracef("Sending module %s message for modules %s to channel %s", available ? " available " : " unavailable ", moduleNames, channel);
                 }
             } catch (IOException e) {
                 // nothing to do at this point; the client doesn't want the response
