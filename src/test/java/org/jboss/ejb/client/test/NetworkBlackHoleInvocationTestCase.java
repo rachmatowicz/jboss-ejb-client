@@ -24,6 +24,7 @@ import org.jboss.ejb.client.test.common.DummyServer;
 import org.jboss.ejb.client.test.common.Echo;
 import org.jboss.ejb.client.test.common.EchoBean;
 import org.jboss.ejb.client.test.common.Result;
+import org.jboss.ejb.client.test.common.StatelessEchoBean;
 import org.jboss.logging.Logger;
 import org.junit.After;
 import org.junit.Assert;
@@ -38,19 +39,9 @@ import java.net.ServerSocket;
 /**
  * @author <a href="ingo@redhat.com">Ingo Weiss</a>
  */
-public class NetworkBlackHoleInvocationTestCase {
+public class NetworkBlackHoleInvocationTestCase extends AbstractEJBClientTestCase {
     private static final Logger logger = Logger.getLogger(NetworkBlackHoleInvocationTestCase.class);
     private static final String PROPERTIES_FILE = "broken-server-jboss-ejb-client.properties";
-
-    private DummyServer server;
-    private boolean serverStarted = false;
-
-    // module
-    private static final String APP_NAME = "my-foo-app";
-    private static final String MODULE_NAME = "my-bar-module";
-    private static final String DISTINCT_NAME = "";
-
-    private static final String SERVER_NAME = "test-server";
 
     /**
      * Do any general setup here
@@ -70,14 +61,9 @@ public class NetworkBlackHoleInvocationTestCase {
     @Before
     public void beforeTest() throws Exception {
         // start a server
-        server = new DummyServer("localhost", 6999, SERVER_NAME);
-        server.start();
-        serverStarted = true;
-        logger.info("Started server ...");
-        serverStarted = true;
-
-        server.register(APP_NAME, MODULE_NAME, DISTINCT_NAME, Echo.class.getSimpleName(), new EchoBean());
-        logger.info("Registered module ...");
+        startServer(0);
+        // deploy a stateless bean
+        deployStateless(0);
     }
 
     /**
@@ -85,17 +71,10 @@ public class NetworkBlackHoleInvocationTestCase {
      */
     @After
     public void afterTest() {
-        server.unregister(APP_NAME, MODULE_NAME, DISTINCT_NAME, Echo.class.getName());
-        logger.info("Unregistered module ...");
-
-        if (serverStarted) {
-            try {
-                this.server.stop();
-            } catch (Throwable t) {
-                logger.info("Could not stop server", t);
-            }
-        }
-        logger.info("Stopped server ...");
+        // undeploy the bean
+        undeployStateless(0);
+        // stoip the server
+        stopServer(0);
     }
 
     /**
@@ -105,7 +84,7 @@ public class NetworkBlackHoleInvocationTestCase {
     public void testTakingDownServerDoesNotBreakClients() throws Exception {
 
         // broken-server-jboss-ejb-client.properties will have the ejb-client with 2 nodes on ports 6999 and 7099
-        // it will succesfully invoke the ejb and then it will kill the 7099 port and try to invoke again
+        // it will successfully invoke the ejb and then it will kill the 7099 port and try to invoke again
         // the expected behavior is that it will not wait more than org.jboss.ejb.client.discovery.additional-node-timeout once it has a connection to 6999 before invoking the ejb
         System.setProperty("org.jboss.ejb.client.discovery.timeout", "10");
 
@@ -114,13 +93,14 @@ public class NetworkBlackHoleInvocationTestCase {
         // if org.jboss.ejb.client.discovery.additional-node-timeout is not effective it will timeout once it reaches the value of org.jboss.ejb.client.discovery.timeout
         System.setProperty("org.jboss.ejb.client.discovery.additional-node-timeout", "2");
 
-        try (DummyServer server2 = new DummyServer("localhost", 7099, "test2")) {
-            server2.start();
-            server2.register(APP_NAME, MODULE_NAME, DISTINCT_NAME, Echo.class.getSimpleName(), new EchoBean());
+        try {
+            // start up a scond server and deploy the stateless bean onto it
+            startServer(1);
+            deployStateless(1);
 
             // create a proxy for invocation
             final StatelessEJBLocator<Echo> statelessEJBLocator = new StatelessEJBLocator<>
-                    (Echo.class, APP_NAME, MODULE_NAME, Echo.class.getSimpleName(), DISTINCT_NAME);
+                    (Echo.class, APP_NAME, MODULE_NAME, StatelessEchoBean.class.getSimpleName(), DISTINCT_NAME);
             final Echo proxy = EJBClient.createProxy(statelessEJBLocator);
             Assert.assertNotNull("Received a null proxy", proxy);
             logger.info("Created proxy for Echo: " + proxy.toString());
@@ -133,7 +113,9 @@ public class NetworkBlackHoleInvocationTestCase {
             Result<String> echo = proxy.echo(message);
             assertInvocationTimeLessThan("org.jboss.ejb.client.discovery.additional-node-timeout ineffective", 3000, invocationStart);
             Assert.assertEquals(message, echo.getValue());
-            server2.hardKill();
+
+            // now kill the started server
+            killServer(1);
 
             final Echo proxy2 = EJBClient.createProxy(statelessEJBLocator);
             Assert.assertNotNull("Received a null proxy", proxy2);
@@ -148,6 +130,8 @@ public class NetworkBlackHoleInvocationTestCase {
                 assertInvocationTimeLessThan("org.jboss.ejb.client.discovery.additional-node-timeout ineffective", 3000, invocationStart);
                 Assert.assertEquals(message, echo.getValue());
             }
+        } finally {
+            // noop
         }
     }
 

@@ -21,10 +21,13 @@ import org.jboss.ejb.client.ClusterAffinity;
 import org.jboss.ejb.client.EJBClient;
 import org.jboss.ejb.client.StatelessEJBLocator;
 import org.jboss.ejb.client.legacy.JBossEJBProperties;
+import org.jboss.ejb.client.test.common.DummyServer;
 import org.jboss.ejb.client.test.common.Echo;
 import org.jboss.ejb.client.test.common.Result;
 import org.jboss.ejb.client.test.common.StatelessEchoBean;
+import org.jboss.ejb.server.ClusterTopologyListener;
 import org.jboss.logging.Logger;
+import org.jboss.remoting3.ChannelClosedException;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -40,8 +43,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.Assert.fail;
+
 /**
  * Tests basic invocation of a bean deployed on a single server node.
+ *
+ * When shutting down a server, if this happenes during discovery, we can have trouble:
+ * - we shut down the server A
+ * - discovery tries to contact all known nodes {A,B}; gets a channel closed exception
+ * - discovery cannot reach node A
+ * - topology update arrives which excludes A from available nodes
  *
  * @author <a href="mailto:rachmato@redhat.com">Richard Achmatowicz</a>
  */
@@ -52,7 +63,10 @@ public class ClusteredInvocationFailOverTestCase extends AbstractEJBClientTestCa
     private static final Logger logger = Logger.getLogger(ClusteredInvocationFailOverTestCase.class);
     private static final String PROPERTIES_FILE = "clustered-jboss-ejb-client.properties";
 
-    private static final int THREADS = 40;
+    private static final int THREADS = 1;
+
+    public static final ClusterTopologyListener.ClusterRemovalInfo removal = DummyServer.getClusterRemovalInfo(CLUSTER_NAME, NODE1);
+    public static final ClusterTopologyListener.ClusterInfo addition = DummyServer.getClusterInfo(CLUSTER_NAME, NODE1);
 
     private static ExecutorService executorService;
     private volatile boolean runInvocations = true;
@@ -75,47 +89,76 @@ public class ClusteredInvocationFailOverTestCase extends AbstractEJBClientTestCa
      */
     @Before
     public void beforeTest() throws Exception {
-
-        //startServer(0);
-        startServerAndDeploy(1);
+        // start a cluster of two nodes
+        for (int i = 0; i < 2; i++) {
+            startServer(i);
+            deployStateless(i);
+            defineCluster(i, CLUSTER);
+        }
     }
 
 
     /**
      * Test a basic invocation on clustered SLSB
+     *
      */
     @Test
     public void testClusteredSLSBInvocation() throws Exception {
         List<Future<?>> retList = new ArrayList<>();
 
         for(int i = 0; i < THREADS; ++i) {
+            // set up THREADs number of invocation loops
             retList.add(executorService.submit((Callable<Object>) () -> {
                 while (runInvocations) {
-                    final StatelessEJBLocator<Echo> statelessEJBLocator = new StatelessEJBLocator<Echo>(Echo.class, APP_NAME, MODULE_NAME, StatelessEchoBean.class.getSimpleName(), DISTINCT_NAME);
-                    final Echo proxy = EJBClient.createProxy(statelessEJBLocator);
+                    try {
+                        final StatelessEJBLocator<Echo> statelessEJBLocator = new StatelessEJBLocator<Echo>(Echo.class, APP_NAME, MODULE_NAME, StatelessEchoBean.class.getSimpleName(), DISTINCT_NAME);
+                        final Echo proxy = EJBClient.createProxy(statelessEJBLocator);
 
-                    EJBClient.setStrongAffinity(proxy, new ClusterAffinity("ejb"));
-                    Assert.assertNotNull("Received a null proxy", proxy);
-                    logger.info("Created proxy for Echo: " + proxy.toString());
+                        EJBClient.setStrongAffinity(proxy, new ClusterAffinity("ejb"));
+                        Assert.assertNotNull("Received a null proxy", proxy);
+                        logger.info("Created proxy for Echo: " + proxy.toString());
 
-                    logger.info("Invoking on proxy...");
-                    // invoke on the proxy (use a ClusterAffinity for now)
-                    final String message = "hello!";
-                    SENT.incrementAndGet();
-                    final Result<String> echoResult = proxy.echo(message);
-                    Assert.assertEquals("Got an unexpected echo", echoResult.getValue(), message);
+                        logger.info("Invoking on proxy...");
+                        // invoke on the proxy (use a ClusterAffinity for now)
+                        final String message = "hello!";
+                        SENT.incrementAndGet();
+                        final Result<String> echoResult = proxy.echo(message);
+                        Assert.assertEquals("Got an unexpected echo", echoResult.getValue(), message);
+                    } catch(Exception e) {
+                        if (e instanceof ChannelClosedException) {
+                            // this is expected when we shut the server down asynchronously during an invocation
+                        } else {
+                            fail("Invocation failed with exception " + e.getMessage());
+                        }
+                    }
                 }
                 return "ok";
             }));
         }
 
+        // invoke
         Thread.sleep(500);
-        stopServer(0);
-        //startServer(0);
-        //Thread.sleep(500);
-        //stopServer(1);
 
+        // stop a server and update the topology of the remaining node
+        logger.info("Stopping server: " + serverNames[0]);
+        stopServer(0);
+        removeClusterNodes(1, removal);
+        logger.info("Stopped server: " + serverNames[0]);
+
+
+        // invoke
         Thread.sleep(500);
+
+        // start a server and update the topologuy of the new node and the remaining node
+        logger.info("Starting server: " + serverNames[0]);
+        startServer(0);
+        defineCluster(0, CLUSTER);
+        addClusterNodes(1, addition);
+        logger.info("Started server: " + serverNames[0]);
+
+        // invoke
+        Thread.sleep(500);
+
         runInvocations = false;
         for(Future<?> i : retList) {
             i.get();
@@ -123,33 +166,17 @@ public class ClusteredInvocationFailOverTestCase extends AbstractEJBClientTestCa
 
     }
 
-    private void undeployAndStopServer(int server) {
-        if (isServerStarted(server)) {
-            try {
-                undeployStateless(server);
-                removeCluster(server, CLUSTER_NAME);
-                stopServer(server);
-            } catch (Throwable t) {
-                logger.info("Could not stop server", t);
-            } finally {
-                serversStarted[server] = false;
-            }
-        }
-    }
-
-    private void startServerAndDeploy(int server) throws Exception {
-        startServer(server, 6999 + (server * 100));
-        deployStateless(server);
-        defineCluster(server, CLUSTER);
-    }
-
     /**
      * Do any test-specific tear down here.
      */
     @After
-    public void afterTest() {
-        undeployAndStopServer(0);
-        undeployAndStopServer(1);
+    public void afterTest() throws Exception {
+        // shutdown the cluster of two nodes
+        for (int i = 0; i < 2; i++) {
+            stopServer(i);
+            undeployStateless(i);
+            removeCluster(i, CLUSTER.getClusterName());
+        }
     }
 
     /**
