@@ -34,6 +34,8 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.net.InetAddress;
+import java.net.SocketAddress;
 import java.net.URI;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
@@ -181,8 +183,22 @@ class EJBClientChannel {
         boolean leaveOpen = false;
         try {
             final int msg = message.readUnsignedByte();
-            // debug
+            System.out.println("EJBClientChannel: received message " + msg);
             String remoteEndpoint = channel.getConnection().getRemoteEndpointName();
+
+            /*
+            // debug
+            SocketAddress localSocketAddress = channel.getConnection().getLocalAddress();
+            SocketAddress peerSocketAddress = channel.getConnection().getPeerAddress();
+            InetAddress localAddress = ((InetSocketAddress)localSocketAddress).getAddress();
+            String localName = ((InetSocketAddress)localSocketAddress).getHostString();
+            InetAddress peerAddress = ((InetSocketAddress)peerSocketAddress).getAddress();
+            String peerName = ((InetSocketAddress)peerSocketAddress).getHostString();
+            System.out.println("EJBClientChannel: got message from connection: local address = " + ((InetSocketAddress) localSocketAddress) + ", peer address = " + ((InetSocketAddress) peerSocketAddress));
+            System.out.println("EJBClientChannel: local address = " + localAddress + ", local name = " + localName + ", loopback? = " + localAddress.isLoopbackAddress());
+            System.out.println("EJBClientChannel: peer address = " + peerAddress + ", peer name = " + peerName + ", loopback? = " + peerAddress.isLoopbackAddress());
+            */
+
             switch (msg) {
                 case Protocol.TXN_RESPONSE:
                 case Protocol.INVOCATION_RESPONSE:
@@ -220,6 +236,7 @@ class EJBClientChannel {
                         if (Logs.INVOCATION.isDebugEnabled()) {
                             Logs.INVOCATION.debugf("Received MODULE_AVAILABLE(%x) message from node %s for module %s", msg, remoteEndpoint, moduleIdentifier);
                         }
+                        System.out.printf("Received MODULE_AVAILABLE(%x) message from node %s for module %s\n", msg, remoteEndpoint, moduleIdentifier);
                     }
                     nodeInformation.addModules(this, moduleList);
                     finishPart(0b01);
@@ -239,6 +256,7 @@ class EJBClientChannel {
                         if (Logs.INVOCATION.isDebugEnabled()) {
                             Logs.INVOCATION.debugf("Received MODULE_UNAVAILABLE(%x) message from node %s for module %s", msg, remoteEndpoint, moduleIdentifier);
                         }
+                        System.out.printf("Received MODULE_UNAVAILABLE(%x) message from node %s for module %s\n", msg, remoteEndpoint, moduleIdentifier);
                     }
                     nodeInformation.removeModules(this, set);
                     break;
@@ -255,8 +273,9 @@ class EJBClientChannel {
                             final NodeInformation nodeInformation = discoveredNodeRegistry.getNodeInformation(nodeName);
 
                             if (Logs.INVOCATION.isDebugEnabled()) {
-                                Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY(%x) message from node %s, registering cluster %s to node %s", msg, remoteEndpoint, clusterName, nodeName);
+                                Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY(%x) message from node %s, registering cluster %s to node %s\n", msg, remoteEndpoint, clusterName, nodeName);
                             }
+                            System.out.printf("Received CLUSTER_TOPOLOGY(%x) message from node %s, registering cluster %s to node %s\n", msg, remoteEndpoint, clusterName, nodeName);
 
                             // create and register the concrete ServiceURLs for each client mapping
                             int mappingCount = PackedInteger.readPackedInteger(message);
@@ -272,8 +291,9 @@ class EJBClientChannel {
                                 final InetSocketAddress destUnresolved = InetSocketAddress.createUnresolved(destHost, destPort);
                                 nodeInformation.addAddress(channel.getConnection().getProtocol(), clusterName, block, destUnresolved);
                                 if (Logs.INVOCATION.isDebugEnabled()) {
-                                    Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY(%x) message block from %s, registering block %s to address %s", msg, remoteEndpoint, block, destUnresolved);
+                                    Logs.INVOCATION.debugf("Received CLUSTER_TOPOLOGY(%x) message block from %s, registering block %s to address %s\n", msg, remoteEndpoint, block, destUnresolved);
                                 }
+                                System.out.printf("Received CLUSTER_TOPOLOGY(%x) message block from %s, registering block %s to address %s\n", msg, remoteEndpoint, block, destUnresolved);
                             }
                         }
                     }
@@ -329,6 +349,7 @@ class EJBClientChannel {
     private static final AttachmentKey<MethodInvocation> INV_KEY = new AttachmentKey<>();
 
     public void processInvocation(final EJBReceiverInvocationContext receiverContext, final ConnectionPeerIdentity peerIdentity) {
+        System.out.printf("EJBClientChannel: calling processInvocation(connection = %s\n)", peerIdentity.getConnection().getPeerAddress().toString());
         MethodInvocation invocation = invocationTracker.addInvocation(id -> new MethodInvocation(id, receiverContext));
         final EJBClientInvocationContext invocationContext = receiverContext.getClientInvocationContext();
         invocationContext.putAttachment(INV_KEY, invocation);
@@ -386,7 +407,9 @@ class EJBClientChannel {
                     }
 
                     // write txn context
+                    System.out.println("EJBClientChannel: calling processInvocation(), setting OutflowHandle()");
                     invocation.setOutflowHandle(writeTransaction(invocationContext.getTransaction(), marshaller, invocationContext.getAuthenticationContext()));
+                    System.out.println("EJBClientChannel: calling processInvocation(), set OutflowHandle()");
                 }
                 // write the invocation locator itself
                 marshaller.writeObject(locator);
@@ -552,13 +575,17 @@ class EJBClientChannel {
     private TransactionID calculateTransactionId(final Transaction transaction) throws RollbackException, SystemException, InvalidTransactionException {
         final URI location = channel.getConnection().getPeerURI();
         Assert.assertNotNull(transaction);
+        System.out.println("EJBClientChannel: calling calculateTransactionID() for URI " + location);
+
         if (transaction instanceof RemoteTransaction) {
+            System.out.println("EJBClientChannel: calling calculateTransactionID() to enlist txn, case == RemoteTransaction for location " + location);
             final RemoteTransaction remoteTransaction = (RemoteTransaction) transaction;
             remoteTransaction.setLocation(location);
             final SimpleIdResolver ir = remoteTransaction.getProviderInterface(SimpleIdResolver.class);
             if (ir == null) throw Logs.TXN.cannotEnlistTx();
             return new UserTransactionID(channel.getConnection().getRemoteEndpointName(), ir.getTransactionId(channel.getConnection()));
         } else if (transaction instanceof LocalTransaction) {
+            System.out.println("EJBClientChannel: calling calculateTransactionID() to enlist txn, case == LocalTransaction for location " + location);
             final LocalTransaction localTransaction = (LocalTransaction) transaction;
             final XAOutflowHandle outflowHandle = transactionContext.outflowTransaction(location, localTransaction);
             // always verify V1/2 outflows
@@ -571,10 +598,13 @@ class EJBClientChannel {
 
     private XAOutflowHandle writeTransaction(final Transaction transaction, final DataOutput dataOutput,
             final AuthenticationContext authenticationContext) throws IOException, RollbackException, SystemException {
+
+        System.out.println("EJBClientChannel: calling writeTransaction()");
         if (authenticationContext != null) {
             if (Logs.MAIN.isDebugEnabled()) {
                 Logs.MAIN.debug("Using existing AuthenticationContext for writeTransaction(...)");
             }
+            System.out.println("Using existing AuthenticationContext for writeTransaction(...)");
             try {
                 return authenticationContext.run((PrivilegedExceptionAction<XAOutflowHandle>) () -> _writeTransaction(transaction, dataOutput));
             } catch (PrivilegedActionException e) {
@@ -592,6 +622,7 @@ class EJBClientChannel {
             if (Logs.MAIN.isDebugEnabled()) {
                 Logs.MAIN.debug("No existing AuthenticationContext for writeTransaction(...)");
             }
+            System.out.println("No existing AuthenticationContext for writeTransaction(...)");
             return _writeTransaction(transaction, dataOutput);
         }
     }
@@ -602,6 +633,8 @@ class EJBClientChannel {
             dataOutput.writeByte(0);
             return null;
         } else if (transaction instanceof RemoteTransaction) {
+            System.out.println("EJBClientChannel: calling _writeTransaction for RemoteTransaction to location " + location);
+            // 1. set the location 2. write a 1 to represent remote 3. get txn-id and write it 4. write txn timeout
             final RemoteTransaction remoteTransaction = (RemoteTransaction) transaction;
             remoteTransaction.setLocation(location);
             dataOutput.writeByte(1);
@@ -614,6 +647,8 @@ class EJBClientChannel {
             PackedInteger.writePackedInteger(dataOutput, transactionTimeout);
             return null;
         } else if (transaction instanceof LocalTransaction) {
+            System.out.println("EJBClientChannel: calling _writeTransaction for LocalTransaction to location " + location);
+            // 1. get the XAOutflowHandle 2. write a 2 to repreent local txn 3. write the array of txn-id 4. write branch qualifier 5. write txn timeout
             final LocalTransaction localTransaction = (LocalTransaction) transaction;
             final XAOutflowHandle outflowHandle = transactionContext.outflowTransaction(location, localTransaction);
             final Xid xid = outflowHandle.getXid();

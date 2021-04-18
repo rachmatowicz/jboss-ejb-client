@@ -190,19 +190,24 @@ class RemoteEJBReceiver extends EJBReceiver {
     private IoFuture<ConnectionPeerIdentity> getConnection(final AbstractInvocationContext context, final URI target, @NotNull AuthenticationContext authenticationContext) throws Exception {
         Affinity affinity = context.getLocator().getAffinity();
         String cluster = (affinity instanceof ClusterAffinity) ? ((ClusterAffinity) affinity).getClusterName() : context.getInitialCluster();
+        System.out.printf("RemoteEJBReceiver: calling getConnection(%s) with cluster %s\n", target.toString(), cluster);
 
         if (cluster != null) {
             if(System.getSecurityManager() == null) {
+                System.out.println("RemoteEJBReceiver: calling getConnectedIdentityUsingClusterEffective - security manager");
                 return discoveredNodeRegistry.getConnectedIdentityUsingClusterEffective(Endpoint.getCurrent(), target, "ejb", "jboss", authenticationContext, cluster);
             } else {
+                System.out.println("RemoteEJBReceiver: calling getConnectedIdentityUsingClusterEffective + security manager");
                 return doPrivileged((PrivilegedAction<IoFuture<ConnectionPeerIdentity>>) () ->
                         discoveredNodeRegistry.getConnectedIdentityUsingClusterEffective(Endpoint.getCurrent(), target, "ejb", "jboss", authenticationContext, cluster));
             }
         }
 
         if(System.getSecurityManager() == null) {
+            System.out.println("RemoteEJBReceiver: calling getConnectedIdentity - security manager");
             return Endpoint.getCurrent().getConnectedIdentity(target, "ejb", "jboss", authenticationContext);
         } else {
+            System.out.println("RemoteEJBReceiver: calling getConnectedIdentity + security manager");
             return doPrivileged((PrivilegedAction<IoFuture<ConnectionPeerIdentity>>) () -> Endpoint.getCurrent().getConnectedIdentity(target, "ejb", "jboss", authenticationContext));
         }
     }

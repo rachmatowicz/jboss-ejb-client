@@ -330,6 +330,7 @@ final class NodeInformation {
         synchronized (this) {
             addressesByConnection.put(clientChannel, (InetSocketAddress) clientChannel.getChannel().getConnection().getPeerAddress());
             serviceURLCache = null;
+            System.out.println("NodeInformation: added address for connection: address = " + ((InetSocketAddress) clientChannel.getChannel().getConnection().getPeerAddress()));
         }
     }
 

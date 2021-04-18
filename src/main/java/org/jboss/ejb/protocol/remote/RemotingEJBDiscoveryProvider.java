@@ -331,6 +331,8 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider, Discovere
     IoFuture<ConnectionPeerIdentity> getConnectedIdentityUsingClusterEffective(Endpoint endpoint, URI destination, String abstractType, String abstractTypeAuthority, AuthenticationContext context, String clusterName) {
         Assert.checkNotNullParam("destination", destination);
         Assert.checkNotNullParam("context", context);
+        System.out.printf("RemotingEJBDiscoveryProvider: calling getConnectedIdentityUsingClusterEffecive(%s)\n", destination.toString() );
+        System.out.println("EffectiveAuthURIS: map = " + effectiveAuthURIs.toString());
 
         URI effectiveAuth = clusterName != null ? effectiveAuthURIs.get(clusterName) : null;
         boolean updateAuth = effectiveAuth != null;
@@ -338,6 +340,7 @@ final class RemotingEJBDiscoveryProvider implements DiscoveryProvider, Discovere
         if (!updateAuth) {
             effectiveAuth = destination;
         }
+        System.out.println("RemotingEJBDiscoveryProvider: effectiveAuth for cluster named " + clusterName + " = " + effectiveAuth);
 
         final AuthenticationContextConfigurationClient client = AUTH_CONFIGURATION_CLIENT;
         final SSLContext sslContext;
